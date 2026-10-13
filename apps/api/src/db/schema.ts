@@ -463,3 +463,98 @@ export const rideRequests = pgTable(
     check('ride_requests_luggage_ck', sql`${t.luggageCabin} >= 0 and ${t.luggageMedium} >= 0 and ${t.luggageLarge} >= 0`),
   ],
 );
+
+// ---------------------------------------------------------------- shared rides: groups
+
+export const vehicleClassEnum = pgEnum('vehicle_class', ['sedan', 'suv', 'van']);
+export const splitMethodEnum = pgEnum('split_method', ['equal_per_seat', 'distance_weighted']);
+export const rideGroupStatusEnum = pgEnum('ride_group_status', ['forming', 'locked', 'assigned', 'en_route', 'arrived', 'in_progress', 'completed', 'cancelled']);
+export const participantStatusEnum = pgEnum('ride_participant_status', ['joined', 'payment_due', 'confirmed', 'left', 'removed', 'no_show', 'completed']);
+
+export const rideGroups = pgTable(
+  'ride_groups',
+  {
+    id: pk(),
+    airportCode: varchar('airport_code', { length: 3 })
+      .notNull()
+      .references(() => airports.code),
+    pickupZoneId: uuid('pickup_zone_id')
+      .notNull()
+      .references(() => pickupZones.id),
+    status: rideGroupStatusEnum('status').notNull().default('forming'),
+    vehicleClass: vehicleClassEnum('vehicle_class').notNull(),
+    seatCapacity: integer('seat_capacity').notNull(),
+    luggageCapacity: integer('luggage_capacity').notNull(),
+    seatsTaken: integer('seats_taken').notNull().default(0),
+    luggageTaken: integer('luggage_taken').notNull().default(0),
+    parties: integer('parties').notNull().default(0),
+    splitMethod: splitMethodEnum('split_method').notNull().default('equal_per_seat'),
+    plannedPickupAt: timestamp('planned_pickup_at', { withTimezone: true }).notNull(),
+    lockAt: timestamp('lock_at', { withTimezone: true }).notNull(),
+    /** Planned drop-off order with leg estimates. */
+    route: jsonb('route').$type<{ order: string[]; legs: { to: string; distanceMeters: number; durationSeconds: number }[] }>().notNull(),
+    routeDistanceMeters: integer('route_distance_meters').notNull(),
+    routeDurationSeconds: integer('route_duration_seconds').notNull(),
+    /** Vehicle fare breakdown (base, distance, time, stops, airport access, tolls, total). */
+    fare: jsonb('fare').$type<Record<string, number>>().notNull(),
+    vehicleFareMinor: integer('vehicle_fare_minor').notNull(),
+    /** Amount WAYLO absorbs so no rider pays more than they agreed after someone leaves. */
+    platformSubsidyMinor: integer('platform_subsidy_minor').notNull().default(0),
+    version: integer('version').notNull().default(1),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => users.id),
+    lockedAt: timestamp('locked_at', { withTimezone: true }),
+    cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
+    cancelReason: text('cancel_reason'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    index('ride_groups_pool_idx').on(t.airportCode, t.pickupZoneId, t.status, t.plannedPickupAt),
+    index('ride_groups_lock_idx').on(t.status, t.lockAt),
+    check('ride_groups_capacity_ck', sql`${t.seatsTaken} <= ${t.seatCapacity} and ${t.luggageTaken} <= ${t.luggageCapacity} and ${t.seatsTaken} >= 0`),
+  ],
+);
+
+export const rideParticipants = pgTable(
+  'ride_participants',
+  {
+    id: pk(),
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => rideGroups.id),
+    requestId: uuid('request_id')
+      .notNull()
+      .references(() => rideRequests.id),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    status: participantStatusEnum('status').notNull().default('joined'),
+    seats: integer('seats').notNull(),
+    luggageUnits: integer('luggage_units').notNull(),
+    /** Ride alone at the agreed price if nobody else joins (only meaningful for the first member). */
+    soloOk: boolean('solo_ok').notNull().default(false),
+    dropoffOrder: integer('dropoff_order').notNull(),
+    waitMinutes: integer('wait_minutes').notNull().default(0),
+    detourMinutes: integer('detour_minutes').notNull().default(0),
+    estimatedDropoffAt: timestamp('estimated_dropoff_at', { withTimezone: true }).notNull(),
+    /** Highest total this rider agreed to; their price can only go down from here. */
+    maxTotalMinor: integer('max_total_minor').notNull(),
+    fareShareMinor: integer('fare_share_minor').notNull(),
+    platformFeeMinor: integer('platform_fee_minor').notNull(),
+    taxMinor: integer('tax_minor').notNull(),
+    currentTotalMinor: integer('current_total_minor').notNull(),
+    finalTotalMinor: integer('final_total_minor'),
+    soloTotalMinor: integer('solo_total_minor').notNull(),
+    cancellationFeeMinor: integer('cancellation_fee_minor'),
+    joinedAt: timestamp('joined_at', { withTimezone: true }).notNull().defaultNow(),
+    leftAt: timestamp('left_at', { withTimezone: true }),
+  },
+  (t) => [
+    index('participants_group_idx').on(t.groupId),
+    index('participants_user_idx').on(t.userId),
+    uniqueIndex('participants_active_request_uq').on(t.requestId).where(sql`${t.status} in ('joined', 'payment_due', 'confirmed')`),
+    check('participants_price_ck', sql`${t.currentTotalMinor} <= ${t.maxTotalMinor}`),
+  ],
+);

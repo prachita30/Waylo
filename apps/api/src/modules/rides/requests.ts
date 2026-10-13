@@ -3,7 +3,7 @@ import { and, asc, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import type { z } from 'zod';
 import type { AppContext } from '../../context';
 import type { DbOrTx } from '../../db/client';
-import { airports, cities, flightBookings, flights, pickupZones, rideRequests } from '../../db/schema';
+import { airports, cities, flightBookings, flights, pickupZones, rideParticipants, rideRequests } from '../../db/schema';
 import type { AuthUser } from '../../http/auth';
 import { AppError, badRequest, conflict, notFound, unavailable } from '../../http/errors';
 import { deletionBlockers } from '../users/service';
@@ -157,9 +157,16 @@ export async function loadRideRequest(db: DbOrTx, user: AuthUser, id: string) {
 
 export async function toRideRequestDto(db: DbOrTx, r: RideRequestRow) {
   const [zone] = await db.select().from(pickupZones).where(eq(pickupZones.id, r.pickupZoneId));
+  const [participation] = await db
+    .select({ groupId: rideParticipants.groupId, status: rideParticipants.status })
+    .from(rideParticipants)
+    .where(eq(rideParticipants.requestId, r.id))
+    .orderBy(desc(rideParticipants.joinedAt))
+    .limit(1);
   return {
     id: r.id,
     status: r.status,
+    groupId: participation && ['joined', 'payment_due', 'confirmed', 'completed'].includes(participation.status) ? participation.groupId : null,
     airport: r.airportCode,
     pickupZone: zone ? { id: zone.id, terminal: zone.terminal, name: zone.name, instructions: zone.instructions } : null,
     flightNumber: r.flightNumber,

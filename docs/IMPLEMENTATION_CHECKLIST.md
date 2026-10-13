@@ -86,7 +86,18 @@ Update this file at the end of every module. On resumption, continue from the fi
 - [x] Web: /rides hub (explainer + my requests), /rides/new form (airport, terminal pickup with instructions, optional flight number, local arrival time, accessible destination combobox, travellers and luggage steppers, vehicle preference, wait/detour sliders, accessibility, notes, live capacity check and matching-window summary), request detail with cancel, rides in My Trips, "Share a ride" from confirmed flight bookings (prefilled)
 - [x] Tests: shared 20, API 86 total (13 ride-request tests), web 41 total (5 ride tests); visual check of /rides/new against the live dev API
 
-## Phase 7 — Ride matching and fare splitting
+## Phase 7 — Ride matching and fare splitting ✅ (2026-10-13)
+- [x] Fare model (packages/shared/src/fares.ts): per-class base/km/min rates, extra drop-off charge, airport access charge, tolls (provider estimate), per-seat service fee, tax in bps (flagged for tax review), disclosed waiting charge + grace; all integer paise; `splitFare` equal-per-seat or distance-weighted (largest remainder, exact sums); solo price for comparison
+- [x] Deterministic matching engine (packages/shared/src/matching.ts): hard constraints checked independently of the score: max parties, same pickup zone, arrival/wait compatibility, vehicle class acceptable to all (accessibility), seats, luggage units, operator availability, per-rider detour (best drop-off order by permutation; baselines estimated at the same pickup time), sharing must beat solo price, no rider above agreed price; configurable weighted score (savings, detour, wait, occupancy); canonical ordering so results are input-order independent
+- [x] Migration 0005_ride_groups: ride_groups (status lifecycle, vehicle class, capacity + taken counters with check constraint, split method, planned pickup, lock time, route, fare breakdown, platform subsidy, version), ride_participants (status, seats, luggage, solo opt-in, drop-off order, wait/detour, max agreed total, current/final price parts with `current ≤ max` check, cancellation fee), partial unique index (one active group per request)
+- [x] Configurable settings in app_config `rides.settings` (fare config, weights, exit buffer, lock lead, max parties, split default, late-cancel %, full-charge window, pickup grace) with code defaults
+- [x] Group service: matches (joinable forming groups ranked by score, start-new option at solo price, compatible-rider count, rejection reasons), start group (solo opt-in), join under group row lock (last seat cannot be double-sold; full vehicles lock immediately), price consent check (409 price_changed), leave before lock (free, request reopened or cancelled, remaining riders re-planned and capped at agreed price), leave after lock (25% or 100% within 30 min; others' prices unchanged; WAYLO subsidy recorded), lock (final prices ≤ agreed; lone rider without solo opt-in released as no_match), lock hook for payments (Phase 10), operator supply hook (Phase 9)
+- [x] Background job: lock groups at their lock time
+- [x] Endpoints: GET /rides/requests/:id/matches, POST /rides/groups, POST /rides/groups/:id/join, GET /rides/groups/:id (members/admin only), POST /rides/groups/:id/leave. Spec mapping: `/rides/matches/:matchId/join` → `/rides/groups/:groupId/join`; `/rides/:rideId/cancel` → `/rides/groups/:groupId/leave`
+- [x] Privacy: co-riders see first name, avatar, area and seat count only, never contact details, surnames or exact addresses
+- [x] Web: RideMatchCard (savings vs solo, seats/luggage meters, drop-off order chips, wait/detour/drop-off ETA, expandable rider + whole-vehicle price breakdown, lock time), MatchesPanel (join / start with solo opt-in, consent dialog with policy, conflict refresh), GroupPanel (members, pickup point instructions, capacity, current/final/agreed price, vehicle fare, leave with fee disclosure, status timeline), avatars made decorative next to visible names
+- [x] Tests: shared 40 (fares + 15 engine tests incl. ₹1,200 ÷ 4 = ₹300, last seat, luggage, detour/incompatible destinations, accessibility, operator availability, price cap, determinism), API 97 total (11 group lifecycle tests incl. concurrent last-seat race, price guard, leave/lock/fees, privacy), web 46 total; live smoke `node scripts/smoke-rides.mjs` passed (₹1,079 → ₹591 when a second rider joined)
+
 ## Phase 8 — Maps and flight-aware pickup
 ## Phase 9 — Driver and fleet-operator portal
 ## Phase 10 — Payments, refunds and settlements
@@ -97,4 +108,4 @@ Update this file at the end of every module. On resumption, continue from the fi
 ## Phase 15 — Integration testing, security review and deployment readiness
 
 ## Next action
-Phase 7: ride matching and fare splitting (deterministic engine with hard constraints + weighted score, ride groups, joining/confirming with capacity locks, fare model, cancellation).
+Phase 8: maps and flight-aware pickup (flight status adapter, arrival updates moving pickup times, baggage-status input, route map component with text alternative, driver location display hooks).

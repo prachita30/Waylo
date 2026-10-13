@@ -27,9 +27,13 @@ const AREAS = {
 };
 const PLACES = { items: [{ placeId: 'sbx:bandra-west', label: 'Bandra West, Mumbai', area: 'Bandra West', lat: 19.0596, lng: 72.8295 }] };
 
+const POLICY = { beforeLock: 'Free to leave until the group locks.', afterLock: 'After lock 25%.', waiting: 'Driver waits 15 minutes.', priceGuarantee: 'You never pay more than the price you agree to.' };
+const MATCHES = { requestId: 'r1', groups: [], newGroup: null, newGroupBlockedBy: null, compatibleOpenRequests: 0, policy: POLICY };
+
 const request = (over: Partial<RideRequest> = {}): RideRequest => ({
   id: 'r1',
   status: 'open',
+  groupId: null,
   airport: 'BOM',
   pickupZone: AREAS.items[0]!.zones[1]!,
   flightNumber: 'S1807',
@@ -116,6 +120,7 @@ describe('Ride request detail', () => {
     let status: RideRequest['status'] = 'open';
     const { calls } = mockApi({
       'GET /rides/requests/r1': () => ({ body: { request: request({ status }) } }),
+      'GET /rides/requests/r1/matches': () => ({ body: MATCHES }),
       'POST /rides/requests/r1/cancel': () => {
         status = 'cancelled';
         return { body: { request: request({ status }) } };

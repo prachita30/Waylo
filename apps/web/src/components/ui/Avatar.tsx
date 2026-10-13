@@ -19,17 +19,20 @@ export function Avatar({
   src,
   size = 'md',
   className,
+  decorative,
 }: {
   name: string;
   src?: string | null;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
+  /** Hide from assistive tech when the name is already shown next to the avatar. */
+  decorative?: boolean;
 }) {
   const dims = { sm: 'size-8 text-xs', md: 'size-10 text-sm', lg: 'size-14 text-base', xl: 'size-24 text-2xl' }[size];
   return (
-    <span className={cn('relative inline-grid shrink-0 place-items-center overflow-hidden rounded-full font-bold ring-2 ring-surface', dims, !src && toneFor(name), className)}>
+    <span aria-hidden={decorative || undefined} className={cn('relative inline-grid shrink-0 place-items-center overflow-hidden rounded-full font-bold ring-2 ring-surface', dims, !src && toneFor(name), className)}>
       {src ? <img src={src} alt="" className="size-full object-cover" loading="lazy" decoding="async" /> : <span aria-hidden>{initials(name)}</span>}
-      <span className="sr-only">{name}</span>
+      {!decorative && <span className="sr-only">{name}</span>}
     </span>
   );
 }
@@ -38,9 +41,9 @@ export function AvatarStack({ people, max = 4, size = 'sm' }: { people: { name: 
   const shown = people.slice(0, max);
   const rest = people.length - shown.length;
   return (
-    <div className="flex -space-x-2">
+    <div className="flex -space-x-2" aria-hidden>
       {shown.map((p, i) => (
-        <Avatar key={i} name={p.name} src={p.src} size={size} />
+        <Avatar key={i} name={p.name} src={p.src} size={size} decorative />
       ))}
       {rest > 0 && (
         <span className={cn('inline-grid place-items-center rounded-full bg-surface-2 font-bold text-ink-2 ring-2 ring-surface', size === 'sm' ? 'size-8 text-xs' : 'size-10 text-sm')}>

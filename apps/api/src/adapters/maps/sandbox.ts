@@ -1,4 +1,4 @@
-import { haversineKm, localHour } from '@waylo/shared';
+import { citySpeedKmh, haversineKm, localHour, ROAD_FACTOR } from '@waylo/shared';
 import type { AdapterInfo } from '../../context';
 import { type LatLng, type MapsAdapter, MapsUnavailableError, type Place, type RouteEstimate } from './types';
 
@@ -44,15 +44,6 @@ const GAZETTEER: { area: string; city: string; lat: number; lng: number; landmar
   { area: 'Palolem', city: 'Goa', lat: 15.01, lng: 74.0232 },
 ];
 
-/** Road distance is longer than straight-line distance in a dense city. */
-const ROAD_FACTOR = 1.4;
-
-/** Average door-to-door speed by local hour (km/h). Mumbai peak hours are slow. */
-export function citySpeedKmh(hour: number): number {
-  if ((hour >= 8 && hour < 11) || (hour >= 17 && hour < 21)) return 17;
-  if (hour >= 23 || hour < 6) return 34;
-  return 24;
-}
 
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 

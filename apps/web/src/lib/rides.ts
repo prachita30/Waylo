@@ -30,6 +30,7 @@ export type RideRequestStatus = 'open' | 'matched' | 'cancelled' | 'expired' | '
 export interface RideRequest {
   id: string;
   status: RideRequestStatus;
+  groupId: string | null;
   airport: string;
   pickupZone: PickupZone | null;
   flightNumber: string | null;
@@ -93,3 +94,107 @@ export const VEHICLE_PREF_LABEL = { any: 'Any vehicle', sedan: 'Sedan', suv: 'SU
 
 export const km = (m: number) => `${(m / 1000).toFixed(m < 10_000 ? 1 : 0)} km`;
 export const mins = (s: number) => `${Math.round(s / 60)} min`;
+
+// ------------------------------------------------------------------ matching
+
+export interface Price {
+  fareShareMinor: number;
+  platformFeeMinor: number;
+  taxMinor: number;
+  totalMinor: number;
+}
+export interface VehicleFareBreakdown {
+  baseMinor: number;
+  distanceMinor: number;
+  timeMinor: number;
+  extraStopsMinor: number;
+  airportAccessMinor: number;
+  tollsMinor: number;
+  totalMinor: number;
+}
+export interface MatchOption {
+  groupId?: string;
+  splitMethod: 'equal_per_seat' | 'distance_weighted';
+  lockAt?: string;
+  vehicleClass: 'sedan' | 'suv' | 'van';
+  capacity: { seats: number; luggageUnits: number };
+  seatsUsed: number;
+  luggageUsed: number;
+  plannedPickupAt: string;
+  route: { order: number; area: string; isMe: boolean }[];
+  routeDistanceMeters: number;
+  routeDurationSeconds: number;
+  members: { firstName: string; area: string; seats: number; avatarUrl: string | null }[];
+  you: { waitMinutes: number; detourMinutes: number; rideMinutes: number; dropoffAt: string; dropoffOrder: number; price: Price; solo: Price; savingsPercent: number };
+  vehicleFare: VehicleFareBreakdown;
+  score: number;
+}
+export interface RidePolicy {
+  beforeLock: string;
+  afterLock: string;
+  waiting: string;
+  priceGuarantee: string;
+}
+export interface MatchesResponse {
+  requestId: string;
+  groups: (MatchOption & { groupId: string })[];
+  newGroup: MatchOption | null;
+  newGroupBlockedBy: string[] | null;
+  compatibleOpenRequests: number;
+  policy: RidePolicy;
+}
+export interface RideGroup {
+  id: string;
+  status: 'forming' | 'locked' | 'assigned' | 'en_route' | 'arrived' | 'in_progress' | 'completed' | 'cancelled';
+  airport: string;
+  pickupZone: PickupZone | null;
+  vehicleClass: 'sedan' | 'suv' | 'van';
+  capacity: { seats: number; luggageUnits: number };
+  seatsTaken: number;
+  luggageTaken: number;
+  splitMethod: 'equal_per_seat' | 'distance_weighted';
+  plannedPickupAt: string;
+  lockAt: string;
+  lockedAt: string | null;
+  route: { distanceMeters: number; durationSeconds: number };
+  vehicleFare: VehicleFareBreakdown;
+  members: { isMe: boolean; firstName: string; avatarUrl: string | null; area: string; seats: number; dropoffOrder: number; estimatedDropoffAt: string }[];
+  me: {
+    participantId: string;
+    requestId: string;
+    status: string;
+    seats: number;
+    waitMinutes: number;
+    detourMinutes: number;
+    estimatedDropoffAt: string;
+    price: Price;
+    maxTotalMinor: number;
+    finalTotalMinor: number | null;
+    soloTotalMinor: number;
+    soloOk: boolean;
+    cancellationFeeMinor: number | null;
+    leaveFeeNowMinor: number | null;
+  } | null;
+  policy: RidePolicy;
+  cancelReason: string | null;
+}
+
+export function useMatches(requestId: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: ['ride-matches', requestId],
+    queryFn: () => api.get<MatchesResponse>(`/rides/requests/${requestId}/matches`),
+    enabled: !!requestId && enabled,
+    refetchInterval: 20_000,
+  });
+}
+
+export function useGroup(groupId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['ride-group', groupId],
+    queryFn: () => api.get<{ group: RideGroup }>(`/rides/groups/${groupId}`).then((r) => r.group),
+    enabled: !!groupId,
+    refetchInterval: (q) => (q.state.data && ['forming', 'locked', 'assigned', 'en_route', 'arrived', 'in_progress'].includes(q.state.data.status) ? 10_000 : false),
+  });
+}
+
+export const VEHICLE_LABEL = { sedan: 'Sedan', suv: 'SUV', van: 'Van' } as const;

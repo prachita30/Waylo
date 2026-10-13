@@ -8,12 +8,15 @@ import { currentUser, requireAuth } from '../../http/auth';
 import { badRequest, notFound, unavailable } from '../../http/errors';
 import { limiter } from '../../http/rateLimit';
 import { body, params, query } from '../../http/validate';
+import { findMatches, joinGroup, leaveGroup, loadGroupForUser, startGroup, toGroupDto } from './groups';
 import { cancelOpenRequest, createRideRequest, listRideRequests, loadRideRequest, lookupArrival, SERVICE_RADIUS_KM, serviceAreas, toRideRequestDto } from './requests';
 
 export function ridesRouter(ctx: AppContext): Router {
   const r = Router();
   const placesLimit = limiter({ windowMs: 60_000, limit: 60, name: 'places' });
   const idParam = z.object({ requestId: z.string().uuid() });
+  const groupParam = z.object({ groupId: z.string().uuid() });
+  const writeLimit = limiter({ windowMs: 60_000, limit: Math.max(20, Math.floor(ctx.config.API_RATE_LIMIT / 10)), name: 'ride-writes' });
 
   r.get('/rides/service-areas', async (_req, res) => {
     res.set('Cache-Control', 'public, max-age=300').json({ items: await serviceAreas(ctx.db), radiusKm: SERVICE_RADIUS_KM });
@@ -67,6 +70,47 @@ export function ridesRouter(ctx: AppContext): Router {
     const { requestId } = params(req, idParam);
     const row = await loadRideRequest(ctx.db, currentUser(req), requestId);
     res.json({ request: await toRideRequestDto(ctx.db, row) });
+  });
+
+  // ---- matching & groups
+
+  r.get('/rides/requests/:requestId/matches', requireAuth, async (req, res) => {
+    const { requestId } = params(req, idParam);
+    res.json(await findMatches(ctx, currentUser(req), requestId));
+  });
+
+  r.post('/rides/groups', requireAuth, writeLimit, async (req, res) => {
+    const input = body(
+      req,
+      z.object({
+        requestId: z.string().uuid(),
+        soloOk: z.boolean(),
+        splitMethod: z.enum(['equal_per_seat', 'distance_weighted']).optional(),
+        acceptedMaxTotalMinor: z.number().int().positive(),
+      }),
+    );
+    const g = await startGroup(ctx, currentUser(req), input);
+    res.status(201).json({ group: await toGroupDto(ctx, g, currentUser(req).id) });
+  });
+
+  r.post('/rides/groups/:groupId/join', requireAuth, writeLimit, async (req, res) => {
+    const { groupId } = params(req, groupParam);
+    const input = body(req, z.object({ requestId: z.string().uuid(), acceptedMaxTotalMinor: z.number().int().positive() }));
+    await joinGroup(ctx, currentUser(req), groupId, input);
+    const g = await loadGroupForUser(ctx.db, currentUser(req), groupId);
+    res.json({ group: await toGroupDto(ctx, g, currentUser(req).id) });
+  });
+
+  r.get('/rides/groups/:groupId', requireAuth, async (req, res) => {
+    const { groupId } = params(req, groupParam);
+    const g = await loadGroupForUser(ctx.db, currentUser(req), groupId);
+    res.json({ group: await toGroupDto(ctx, g, currentUser(req).id) });
+  });
+
+  r.post('/rides/groups/:groupId/leave', requireAuth, writeLimit, async (req, res) => {
+    const { groupId } = params(req, groupParam);
+    const { cancelRequest } = body(req, z.object({ cancelRequest: z.boolean().default(false) }));
+    res.json(await leaveGroup(ctx, currentUser(req), groupId, { cancelRequest }));
   });
 
   r.post('/rides/requests/:requestId/cancel', requireAuth, async (req, res) => {

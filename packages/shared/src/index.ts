@@ -5,3 +5,5 @@ export * from './schemas/auth';
 export * from './time';
 export * from './schemas/booking';
 export * from './rides';
+export * from './fares';
+export * from './matching';

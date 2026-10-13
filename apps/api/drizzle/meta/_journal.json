@@ -36,6 +36,13 @@
       "when": 1791883841175,
       "tag": "0004_ride_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791884715946,
+      "tag": "0005_ride_groups",
+      "breakpoints": true
     }
   ]
 }

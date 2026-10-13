@@ -4,6 +4,8 @@ import { Accessibility, ArrowLeft, Backpack, Clock, MapPin, PlaneLanding, Route,
 import { type ReactNode, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { AirportChip } from '@/components/brand/Route';
+import { GroupPanel } from '@/features/rides/GroupPanel';
+import { MatchesPanel } from '@/features/rides/MatchesPanel';
 import { Badge, StatusBadge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardSection } from '@/components/ui/Card';
@@ -18,7 +20,12 @@ export default function RideRequestDetail() {
   const q = useRideRequest(requestId);
   if (q.isPending) return <div className="container-page max-w-4xl py-10"><SkeletonList count={3} /></div>;
   if (q.isError) return <div className="container-page max-w-4xl py-10"><ErrorState title={isApiError(q.error, 'not_found') ? 'Ride request not found' : 'We could not load this request'} error={q.error} onRetry={() => q.refetch()} /></div>;
-  return <RequestView r={q.data} />;
+  const r = q.data;
+  return (
+    <RequestView r={r}>
+      {r.status === 'open' ? <MatchesPanel request={r} /> : r.groupId ? <GroupPanel groupId={r.groupId} requestId={r.id} /> : null}
+    </RequestView>
+  );
 }
 
 export function RequestView({ r, children }: { r: RideRequest; children?: ReactNode }) {
