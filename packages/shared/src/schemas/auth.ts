@@ -35,6 +35,8 @@ export const registerSchema = z.object({
   password: passwordSchema,
   phone: phoneSchema.optional().or(z.literal('').transform(() => undefined)),
   acceptTerms: z.literal(true, { error: 'You need to accept the terms to continue.' }),
+  /** Business accounts start unapproved and cannot take trips or publish offers until reviewed. */
+  accountType: z.enum(['passenger', 'operator', 'partner']).default('passenger'),
 });
 export type RegisterInput = z.input<typeof registerSchema>;
 

@@ -180,6 +180,7 @@ export interface RideGroup {
     cancellationFeeMinor: number | null;
     leaveFeeNowMinor: number | null;
   } | null;
+  trip: { driverFirstName: string; vehicle: { makeModel: string; colour: string; registration: string; vehicleClass: string }; assignedAt: string; location: { lat: number; lng: number; at: string } | null } | null;
   policy: RidePolicy;
   cancelReason: string | null;
 }

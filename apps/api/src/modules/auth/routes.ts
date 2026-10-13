@@ -26,7 +26,7 @@ export function authRouter(ctx: AppContext): Router {
     const user = await ctx.db.transaction(async (tx) => {
       const [u] = await tx
         .insert(users)
-        .values({ email: input.email, passwordHash, fullName: input.fullName, phone: input.phone ?? null, role: 'passenger' })
+        .values({ email: input.email, passwordHash, fullName: input.fullName, phone: input.phone ?? null, role: input.accountType })
         .onConflictDoNothing({ target: users.email })
         .returning();
       // A concurrent registration with the same email won the race.

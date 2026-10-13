@@ -8,3 +8,4 @@ export * from './rides';
 export * from './fares';
 export * from './matching';
 export * from './geo';
+export * from './schemas/operator';

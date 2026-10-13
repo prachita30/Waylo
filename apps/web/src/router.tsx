@@ -3,12 +3,36 @@ import { PassengerLayout } from '@/components/layout/AppShell';
 import { RequireAuth } from '@/components/layout/RequireAuth';
 import { UserMenu } from '@/components/layout/UserMenu';
 import { RouteError } from '@/pages/RouteError';
+import OperatorShell, { OperatorOutlet } from '@/pages/operator/OperatorShell';
 
 const lazyPage = (load: () => Promise<{ default: React.ComponentType }>) => async () => ({ Component: (await load()).default });
 
 export const router = createBrowserRouter([
   { path: '/login', lazy: lazyPage(() => import('@/pages/auth/Login')), errorElement: <RouteError /> },
   { path: '/register', lazy: lazyPage(() => import('@/pages/auth/Register')), errorElement: <RouteError /> },
+  {
+    path: '/operator',
+    element: <RequireAuth roles={['operator']} />,
+    errorElement: <RouteError />,
+    children: [
+      {
+        element: <OperatorShell />,
+        children: [
+          {
+            element: <OperatorOutlet />,
+            children: [
+              { index: true, lazy: lazyPage(() => import('@/pages/operator/Trips')) },
+              { path: 'trips/:groupId', lazy: lazyPage(() => import('@/pages/operator/TripConsole')) },
+              { path: 'fleet', lazy: lazyPage(() => import('@/pages/operator/Fleet')) },
+              { path: 'availability', lazy: lazyPage(() => import('@/pages/operator/Availability')) },
+              { path: 'earnings', lazy: lazyPage(() => import('@/pages/operator/Earnings')) },
+              { path: 'incidents', lazy: lazyPage(() => import('@/pages/operator/Incidents')) },
+            ],
+          },
+        ],
+      },
+    ],
+  },
   {
     element: <PassengerLayout headerRight={<UserMenu />} />,
     errorElement: <RouteError />,
@@ -30,6 +54,7 @@ export const router = createBrowserRouter([
           { path: 'trips/flights/:bookingId', lazy: lazyPage(() => import('@/pages/trips/FlightBookingDetail')) },
           { path: 'rides/new', lazy: lazyPage(() => import('@/pages/rides/NewRide')) },
           { path: 'trips/rides/:requestId', lazy: lazyPage(() => import('@/pages/trips/RideRequestDetail')) },
+          { path: 'report-incident', lazy: lazyPage(() => import('@/pages/info/ReportIncident')) },
         ],
       },
       ...(import.meta.env.DEV ? [{ path: 'dev/design', lazy: lazyPage(() => import('@/pages/DesignSystem')) }] : []),

@@ -2,6 +2,7 @@ import { formatMoney } from '@waylo/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Briefcase, CarFront, LogOut, MapPin, Users } from 'lucide-react';
 import { useState } from 'react';
+import { Link } from 'react-router';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge, StatusBadge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -87,6 +88,7 @@ export function GroupPanel({ groupId, requestId }: { groupId: string; requestId:
                 points={[
                   { ...g.map.pickup, label: `Pickup ${g.pickupZone?.terminal ?? ''}`.trim(), kind: 'pickup' as const },
                   ...[...g.map.stops].sort((a, b) => a.order - b.order).map((s) => ({ lat: s.lat, lng: s.lng, label: s.isMe ? `You · ${s.area}` : s.area, kind: s.isMe ? ('me' as const) : ('stop' as const) })),
+                  ...(g.trip?.location ? [{ lat: g.trip.location.lat, lng: g.trip.location.lng, label: `${g.trip.driverFirstName} (${formatTime(g.trip.location.at)})`, kind: 'driver' as const }] : []),
                 ]}
               />
             )}
@@ -120,6 +122,23 @@ export function GroupPanel({ groupId, requestId }: { groupId: string; requestId:
             )}
           </CardSection>
         </Card>
+        {g.trip && (
+          <Card>
+            <CardSection className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <Avatar name={g.trip.driverFirstName} size="md" decorative />
+                <div>
+                  <p className="font-semibold">{g.trip.driverFirstName} is your driver</p>
+                  <p className="text-sm text-ink-2">
+                    {g.trip.vehicle.colour} {g.trip.vehicle.makeModel}
+                  </p>
+                </div>
+              </div>
+              <span className="rounded-lg border-2 border-ink px-3 py-1 font-mono text-lg font-bold tracking-wider">{g.trip.vehicle.registration}</span>
+              {g.trip.location && <p className="w-full text-xs text-ink-3">Last location shared at {formatTime(g.trip.location.at)}.</p>}
+            </CardSection>
+          </Card>
+        )}
         {g.status === 'forming' && <Notice tone="info" title="More riders can still join">Your price only goes down from here. The group locks at {formatTime(g.lockAt)}.</Notice>}
         {g.status === 'cancelled' && <Notice tone="warning" title="This group was cancelled">{g.cancelReason}</Notice>}
       </div>
@@ -173,6 +192,9 @@ export function GroupPanel({ groupId, requestId }: { groupId: string; requestId:
             <BookingTimeline steps={groupTimeline(g)} />
           </CardSection>
         </Card>
+        <Button asChild variant="ghost" block size="sm">
+          <Link to={`/report-incident?group=${g.id}`}>Report a safety issue</Link>
+        </Button>
       </aside>
 
       <ConfirmDialog

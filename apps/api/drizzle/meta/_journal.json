@@ -50,6 +50,13 @@
       "when": 1791885432399,
       "tag": "0006_flight_aware",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791886240955,
+      "tag": "0007_operators",
+      "breakpoints": true
     }
   ]
 }

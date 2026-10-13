@@ -111,7 +111,20 @@ Update this file at the end of every module. On resumption, continue from the fi
 - [x] Tests: shared 44, API 105 (8 flight-aware tests: small delay moves pickup, long delay removes rider free, cancelled flight releases rider, locked prices unchanged, outage tolerated, readiness, area-level map privacy, admin-only control), web 48; live check of the group view against the dev API
 - [~] Live driver tracking and driver assignment updates are implemented with the operator portal in Phase 9 (they need drivers)
 
-## Phase 9 — Driver and fleet-operator portal
+## Phase 9 — Driver and fleet-operator portal ✅ (2026-10-13)
+- [x] Migration 0007_operators: operators (review status, served airports, commission bps, demo flag), operator_members (owner/dispatcher/driver; one operator per user), drivers (licence last 4 only), vehicles (class, seats, luggage units, accessibility, unique registration), operator_documents (typed, expiring, reviewed), availability (shift windows, end > start), ride_trips (assignment, status timestamps, last location, off-route flag, earning/commission), trip_releases, safety_incidents; participants gain boarded/dropped-off timestamps
+- [x] Operator self-registration (account type operator/partner start unapproved; admin cannot be self-assigned), onboarding, approval gates (only approved operators see offers / accept trips / schedule shifts)
+- [x] Fleet: vehicles and drivers pending review, registration normalisation + uniqueness, document upload (PDF/PNG/JPEG magic-byte check, 5 MB, private to operator + admins, subject ownership enforced), shifts (approved driver + vehicle only, max 14h, no overlaps, served airports only)
+- [x] Supply → matching: approved fleet capacity counts beyond 48h; within 48h a scheduled shift must cover the pickup; no supply → "No vehicle available"
+- [x] Trips: offers = locked unassigned groups at served airports that the fleet can carry (seats, luggage, accessibility); accept under group row lock (first operator wins); driver double-booking guard (±2h); release before departure re-offers the trip; state machine assigned → en_route → arrived → in_progress → completed; boarded / no-show (only after planned pickup + 15 min grace; full-price fee recorded) / dropped-off; completion fixes commission and operator earning
+- [x] Live location while active; off-route detection during the trip (2.5 km from planned path); riders see driver first name, vehicle, plate and last position
+- [x] Incidents: riders/drivers/operators report (scoped to their rides), safety/accident/critical escalation logged
+- [x] Admin review API (pending queue, approve/reject/suspend operators, drivers, vehicles, documents; audited document viewing) — UI in Phase 13
+- [x] Demo fleet seed: approved "WAYLO Demo Fleet" with sedan/SUV/accessible van (fictional "DM" plates), three drivers (one linked to driver@demo), standby availability at BOM
+- [x] Web: PortalLayout (sidebar + mobile bar, reusable for partner/admin), DataTable (table → stacked cards on mobile), MetricCard; operator onboarding, trips (available/active/history, accept dialog filtering approved fitting vehicles), trip console (status steps, rider actions, readiness/flight/notes, map with driver, location sharing + demo simulator, release, incident link), fleet (vehicles, drivers, documents with dialogs), shifts, earnings, incidents; rider group view shows driver, vehicle and plate; rider safety report page
+- [x] Bug found and fixed while testing: supply lookup ran outside the active transaction (deadlock on single-connection PGlite; wasted pool connection on Postgres)
+- [x] Tests: API 117 (12 operator tests incl. approval gates, documents privacy, accept race, driver double-booking, full trip lifecycle with grace/no-show/off-route/earnings, release, driver scoping, supply gating, incidents), web 54; live smoke `node scripts/smoke-trip.mjs` passed (lock → accept → complete, ₹915.11 earning after ₹161.49 commission)
+
 ## Phase 10 — Payments, refunds and settlements
 ## Phase 11 — Notifications and support
 ## Phase 12 — Airline and inventory-partner portal
@@ -120,4 +133,4 @@ Update this file at the end of every module. On resumption, continue from the fi
 ## Phase 15 — Integration testing, security review and deployment readiness
 
 ## Next action
-Phase 9: driver and fleet-operator portal (operators, drivers, vehicles, documents, approval, availability → matching supply, assignment, trip status updates, live location + deviation, no-shows, incidents, earnings).
+Phase 10: payments, refunds and settlements (ride payment at lock, refund execution for flight refunds/ticketing failures/ride fees, refund records + webhooks, operator settlements).

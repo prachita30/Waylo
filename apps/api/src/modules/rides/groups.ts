@@ -18,6 +18,7 @@ import type { AuthUser } from '../../http/auth';
 import { AppError, conflict, notFound } from '../../http/errors';
 import { recordAudit } from '../../lib/audit';
 import { getRideSettings, type RideSettings } from '../../lib/settings';
+import { riderTripView } from '../operator/trips';
 import type { RideRequestRow } from './requests';
 
 export type GroupRow = typeof rideGroups.$inferSelect;
@@ -25,7 +26,7 @@ export type ParticipantRow = typeof rideParticipants.$inferSelect;
 const ACTIVE: ParticipantRow['status'][] = ['joined', 'payment_due', 'confirmed'];
 
 /** Operator supply by vehicle class. Phase 9 replaces this with approved operators' live availability. */
-export type SupplyFn = (ctx: AppContext, airport: string, at: Date) => Promise<VehicleClass[]>;
+export type SupplyFn = (ctx: AppContext, db: DbOrTx, airport: string, at: Date) => Promise<VehicleClass[]>;
 let supply: SupplyFn = async () => ['sedan', 'suv', 'van'];
 export function setSupplyProvider(fn: SupplyFn) {
   supply = fn;
@@ -56,7 +57,7 @@ export async function matchOptions(ctx: AppContext, db: DbOrTx, s: RideSettings,
     pickup: { lat: zone!.lat, lng: zone!.lng },
     exitBufferMinutes: s.exitBufferMinutes,
     maxParties: s.maxParties,
-    availableClasses: await supply(ctx, airport, at),
+    availableClasses: await supply(ctx, db, airport, at),
     splitMethod,
     fare: s.fare,
     weights: s.weights,
@@ -595,6 +596,7 @@ export async function toGroupDto(ctx: AppContext, g: GroupRow, viewerId: string)
           leaveFeeNowMinor: ACTIVE.includes(me.p.status) ? cancellationFee(me.p, g, s, new Date()) : null,
         }
       : null,
+    trip: await riderTripView(ctx, g.id),
     policy: policyText(s),
     cancelReason: g.cancelReason,
   };

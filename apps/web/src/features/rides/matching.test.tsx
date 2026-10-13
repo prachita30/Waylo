@@ -145,6 +145,7 @@ const group = (over: Partial<RideGroup> = {}): RideGroup => ({
     cancellationFeeMinor: null,
     leaveFeeNowMinor: 14_000,
   },
+  trip: { driverFirstName: 'Ravi', vehicle: { makeModel: 'Maruti Suzuki Dzire', colour: 'White', registration: 'MH 01 DM 1001', vehicleClass: 'sedan' }, assignedAt: '2026-10-20T08:20:00Z', location: { lat: 19.05, lng: 72.86, at: '2026-10-20T08:50:00Z' } },
   policy: POLICY,
   cancelReason: null,
   ...over,
@@ -157,6 +158,8 @@ describe('Group panel', () => {
     expect(await screen.findByText('Riya')).toBeInTheDocument();
     expect(screen.getByText('You')).toBeInTheDocument();
     expect(screen.getByText('Final price')).toBeInTheDocument();
+    expect(screen.getByText('Ravi is your driver')).toBeInTheDocument();
+    expect(screen.getByText('MH 01 DM 1001')).toBeInTheDocument();
     expect(screen.getByText(/Agreed maximum ₹600/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /Leave group/ }));
     const dialog = await screen.findByRole('dialog');

@@ -554,6 +554,8 @@ export const rideParticipants = pgTable(
     readiness: readinessEnum('readiness').notNull().default('not_landed'),
     readinessUpdatedAt: timestamp('readiness_updated_at', { withTimezone: true }),
     removedReason: varchar('removed_reason', { length: 32 }),
+    boardedAt: timestamp('boarded_at', { withTimezone: true }),
+    droppedOffAt: timestamp('dropped_off_at', { withTimezone: true }),
     joinedAt: timestamp('joined_at', { withTimezone: true }).notNull().defaultNow(),
     leftAt: timestamp('left_at', { withTimezone: true }),
   },
@@ -563,4 +565,217 @@ export const rideParticipants = pgTable(
     uniqueIndex('participants_active_request_uq').on(t.requestId).where(sql`${t.status} in ('joined', 'payment_due', 'confirmed')`),
     check('participants_price_ck', sql`${t.currentTotalMinor} <= ${t.maxTotalMinor}`),
   ],
+);
+
+// ---------------------------------------------------------------- fleet operators
+
+export const reviewStatusEnum = pgEnum('review_status', ['pending', 'approved', 'rejected', 'suspended']);
+export const operatorRoleEnum = pgEnum('operator_member_role', ['owner', 'dispatcher', 'driver']);
+
+export const operators = pgTable(
+  'operators',
+  {
+    id: pk(),
+    name: varchar('name', { length: 120 }).notNull(),
+    phone: varchar('phone', { length: 16 }).notNull(),
+    /** Airports this operator serves (IATA codes). */
+    airports: jsonb('airports').$type<string[]>().notNull().default([]),
+    status: reviewStatusEnum('status').notNull().default('pending'),
+    statusReason: text('status_reason'),
+    /** Platform commission on the vehicle fare, basis points. */
+    commissionBps: integer('commission_bps').notNull().default(1500),
+    isDemo: boolean('is_demo').notNull().default(false),
+    reviewedBy: uuid('reviewed_by').references(() => users.id),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index('operators_status_idx').on(t.status)],
+);
+
+export const operatorMembers = pgTable(
+  'operator_members',
+  {
+    operatorId: uuid('operator_id')
+      .notNull()
+      .references(() => operators.id),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    role: operatorRoleEnum('role').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.operatorId, t.userId] }), uniqueIndex('operator_members_user_uq').on(t.userId)],
+);
+
+export const drivers = pgTable(
+  'drivers',
+  {
+    id: pk(),
+    operatorId: uuid('operator_id')
+      .notNull()
+      .references(() => operators.id),
+    /** Login used for trip updates, when the driver uses the app. */
+    userId: uuid('user_id').references(() => users.id),
+    fullName: varchar('full_name', { length: 80 }).notNull(),
+    phone: varchar('phone', { length: 16 }).notNull(),
+    /** Only the last four characters are stored; the licence document is reviewed separately. */
+    licenceLast4: varchar('licence_last4', { length: 4 }).notNull(),
+    status: reviewStatusEnum('status').notNull().default('pending'),
+    statusReason: text('status_reason'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index('drivers_operator_idx').on(t.operatorId), uniqueIndex('drivers_user_uq').on(t.userId)],
+);
+
+export const vehicles = pgTable(
+  'vehicles',
+  {
+    id: pk(),
+    operatorId: uuid('operator_id')
+      .notNull()
+      .references(() => operators.id),
+    vehicleClass: vehicleClassEnum('vehicle_class').notNull(),
+    makeModel: varchar('make_model', { length: 60 }).notNull(),
+    colour: varchar('colour', { length: 30 }).notNull(),
+    registration: varchar('registration', { length: 16 }).notNull(),
+    seats: integer('seats').notNull(),
+    luggageUnits: integer('luggage_units').notNull(),
+    wheelchairAccessible: boolean('wheelchair_accessible').notNull().default(false),
+    status: reviewStatusEnum('status').notNull().default('pending'),
+    statusReason: text('status_reason'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index('vehicles_operator_idx').on(t.operatorId), uniqueIndex('vehicles_registration_uq').on(t.registration)],
+);
+
+export const documentTypeEnum = pgEnum('document_type', [
+  'operator_permit',
+  'insurance',
+  'vehicle_registration',
+  'fitness_certificate',
+  'driving_licence',
+  'police_verification',
+]);
+
+export const operatorDocuments = pgTable(
+  'operator_documents',
+  {
+    id: pk(),
+    operatorId: uuid('operator_id')
+      .notNull()
+      .references(() => operators.id),
+    /** operator | driver | vehicle */
+    subjectType: varchar('subject_type', { length: 16 }).notNull(),
+    subjectId: uuid('subject_id').notNull(),
+    docType: documentTypeEnum('doc_type').notNull(),
+    fileName: varchar('file_name', { length: 80 }).notNull(),
+    contentType: varchar('content_type', { length: 40 }).notNull(),
+    expiresOn: varchar('expires_on', { length: 10 }),
+    status: reviewStatusEnum('status').notNull().default('pending'),
+    reviewNotes: text('review_notes'),
+    reviewedBy: uuid('reviewed_by').references(() => users.id),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+    uploadedBy: uuid('uploaded_by')
+      .notNull()
+      .references(() => users.id),
+    createdAt: createdAt(),
+  },
+  (t) => [index('documents_subject_idx').on(t.subjectType, t.subjectId), index('documents_operator_idx').on(t.operatorId)],
+);
+
+/** When a driver and vehicle can take airport trips. */
+export const availability = pgTable(
+  'availability',
+  {
+    id: pk(),
+    operatorId: uuid('operator_id')
+      .notNull()
+      .references(() => operators.id),
+    driverId: uuid('driver_id')
+      .notNull()
+      .references(() => drivers.id),
+    vehicleId: uuid('vehicle_id')
+      .notNull()
+      .references(() => vehicles.id),
+    airportCode: varchar('airport_code', { length: 3 })
+      .notNull()
+      .references(() => airports.code),
+    startsAt: timestamp('starts_at', { withTimezone: true }).notNull(),
+    endsAt: timestamp('ends_at', { withTimezone: true }).notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index('availability_airport_time_idx').on(t.airportCode, t.startsAt, t.endsAt), check('availability_window_ck', sql`${t.endsAt} > ${t.startsAt}`)],
+);
+
+/** Assignment and execution of a ride group by an operator. One row per group. */
+export const rideTrips = pgTable(
+  'ride_trips',
+  {
+    groupId: uuid('group_id')
+      .primaryKey()
+      .references(() => rideGroups.id),
+    operatorId: uuid('operator_id')
+      .notNull()
+      .references(() => operators.id),
+    driverId: uuid('driver_id')
+      .notNull()
+      .references(() => drivers.id),
+    vehicleId: uuid('vehicle_id')
+      .notNull()
+      .references(() => vehicles.id),
+    assignedAt: timestamp('assigned_at', { withTimezone: true }).notNull().defaultNow(),
+    enRouteAt: timestamp('en_route_at', { withTimezone: true }),
+    arrivedAt: timestamp('arrived_at', { withTimezone: true }),
+    startedAt: timestamp('started_at', { withTimezone: true }),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    lastLat: doublePrecision('last_lat'),
+    lastLng: doublePrecision('last_lng'),
+    lastLocationAt: timestamp('last_location_at', { withTimezone: true }),
+    offRoute: boolean('off_route').notNull().default(false),
+    offRouteSince: timestamp('off_route_since', { withTimezone: true }),
+    /** Operator earning = vehicle fare minus commission, fixed at completion. */
+    operatorEarningMinor: integer('operator_earning_minor'),
+    commissionMinor: integer('commission_minor'),
+  },
+  (t) => [index('ride_trips_operator_idx').on(t.operatorId), index('ride_trips_driver_idx').on(t.driverId)],
+);
+
+export const tripReleases = pgTable('trip_releases', {
+  id: pk(),
+  groupId: uuid('group_id')
+    .notNull()
+    .references(() => rideGroups.id),
+  operatorId: uuid('operator_id')
+    .notNull()
+    .references(() => operators.id),
+  reason: text('reason').notNull(),
+  createdAt: createdAt(),
+});
+
+export const incidentCategoryEnum = pgEnum('incident_category', ['safety', 'accident', 'vehicle', 'passenger_conduct', 'driver_conduct', 'lost_item', 'other']);
+export const incidentSeverityEnum = pgEnum('incident_severity', ['low', 'medium', 'high', 'critical']);
+export const incidentStatusEnum = pgEnum('incident_status', ['open', 'investigating', 'resolved']);
+
+export const safetyIncidents = pgTable(
+  'safety_incidents',
+  {
+    id: pk(),
+    reporterUserId: uuid('reporter_user_id')
+      .notNull()
+      .references(() => users.id),
+    reporterRole: varchar('reporter_role', { length: 16 }).notNull(),
+    groupId: uuid('group_id').references(() => rideGroups.id),
+    operatorId: uuid('operator_id').references(() => operators.id),
+    category: incidentCategoryEnum('category').notNull(),
+    severity: incidentSeverityEnum('severity').notNull(),
+    description: text('description').notNull(),
+    status: incidentStatusEnum('status').notNull().default('open'),
+    resolution: text('resolution'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index('incidents_status_idx').on(t.status, t.severity)],
 );
