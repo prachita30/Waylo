@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.data/
+coverage/
+*.log
+.env
+.env.*
+!.env.example
+playwright-report/
+test-results/
+uploads/
+
+# Local tool settings
+.claude/

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en-IN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>WAYLO — Travel smarter. Spend less. Get there together.</title>
+    <meta name="description" content="Airline-authorised flight offers and shared airport rides, in one simple app." />
+    <meta name="theme-color" content="#FAF7F2" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0B1320" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta property="og:site_name" content="WAYLO" />
+    <meta property="og:title" content="WAYLO — Your next journey, for less." />
+    <meta property="og:description" content="Airline-authorised flight offers and shared airport rides, in one simple app." />
+    <meta property="og:image" content="/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script>
+      // Apply saved theme before first paint to avoid a flash.
+      try {
+        var t = localStorage.getItem('waylo.theme');
+        if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t;
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript>WAYLO needs JavaScript enabled to search flights and rides.</noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

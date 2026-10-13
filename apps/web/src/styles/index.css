@@ -1,0 +1,194 @@
+@import '@fontsource-variable/plus-jakarta-sans';
+@import 'tailwindcss';
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/*
+ * WAYLO design tokens. Semantic tokens (bg, surface, ink…) are what components use;
+ * they are remapped for dark mode below. Raw brand values mirror packages/shared/src/brand.ts.
+ */
+:root {
+  --bg: #faf7f2;
+  --surface: #ffffff;
+  --surface-2: #f3efe7;
+  --ink: #0e1a2b;
+  --ink-2: #4a5568;
+  --ink-3: #7a8494;
+  --line: #e4e1da;
+  --primary: #2648e8;
+  --primary-ink: #ffffff;
+  --primary-soft: #e8ecfd;
+  --mint: #0f8f75;
+  --mint-soft: #ddf3ec;
+  --lavender: #ece9fb;
+  --sky: #e5f1fb;
+  --coral: #d9533d;
+  --coral-soft: #fde7e2;
+  --amber: #a15c07;
+  --amber-soft: #fdf0d8;
+  --danger: #c23a2b;
+  --danger-soft: #fbe4e1;
+  --shadow: 0 1px 2px rgb(14 26 43 / 0.04), 0 8px 24px -12px rgb(14 26 43 / 0.12);
+  --shadow-lg: 0 2px 4px rgb(14 26 43 / 0.04), 0 24px 48px -20px rgb(14 26 43 / 0.25);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #0b1320;
+    --surface: #121c2d;
+    --surface-2: #18243a;
+    --ink: #f3f0ea;
+    --ink-2: #b6bfcc;
+    --ink-3: #8691a3;
+    --line: #243149;
+    --primary: #6b86ff;
+    --primary-ink: #0b1320;
+    --primary-soft: #1d2a52;
+    --mint: #3fd1ad;
+    --mint-soft: #11372f;
+    --lavender: #221f3d;
+    --sky: #142a40;
+    --coral: #ff8a75;
+    --coral-soft: #3d1f1a;
+    --amber: #f2b45a;
+    --amber-soft: #3a2a12;
+    --danger: #ff7a6b;
+    --danger-soft: #3d1a17;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -12px rgb(0 0 0 / 0.5);
+    --shadow-lg: 0 2px 4px rgb(0 0 0 / 0.3), 0 24px 48px -20px rgb(0 0 0 / 0.6);
+    color-scheme: dark;
+  }
+}
+:root[data-theme='dark'] {
+  --bg: #0b1320;
+  --surface: #121c2d;
+  --surface-2: #18243a;
+  --ink: #f3f0ea;
+  --ink-2: #b6bfcc;
+  --ink-3: #8691a3;
+  --line: #243149;
+  --primary: #6b86ff;
+  --primary-ink: #0b1320;
+  --primary-soft: #1d2a52;
+  --mint: #3fd1ad;
+  --mint-soft: #11372f;
+  --lavender: #221f3d;
+  --sky: #142a40;
+  --coral: #ff8a75;
+  --coral-soft: #3d1f1a;
+  --amber: #f2b45a;
+  --amber-soft: #3a2a12;
+  --danger: #ff7a6b;
+  --danger-soft: #3d1a17;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -12px rgb(0 0 0 / 0.5);
+  --shadow-lg: 0 2px 4px rgb(0 0 0 / 0.3), 0 24px 48px -20px rgb(0 0 0 / 0.6);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --font-sans: 'Plus Jakarta Sans Variable', ui-sans-serif, system-ui, sans-serif;
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-line: var(--line);
+  --color-primary: var(--primary);
+  --color-primary-ink: var(--primary-ink);
+  --color-primary-soft: var(--primary-soft);
+  --color-mint: var(--mint);
+  --color-mint-soft: var(--mint-soft);
+  --color-lavender: var(--lavender);
+  --color-sky: var(--sky);
+  --color-coral: var(--coral);
+  --color-coral-soft: var(--coral-soft);
+  --color-amber: var(--amber);
+  --color-amber-soft: var(--amber-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --shadow-card: var(--shadow);
+  --shadow-float: var(--shadow-lg);
+  --radius-card: 1.25rem;
+  --radius-control: 0.875rem;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-bg font-sans text-ink antialiased;
+    font-feature-settings: 'ss01', 'cv11';
+  }
+  :focus-visible {
+    outline: 2.5px solid var(--primary);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  ::selection {
+    background: var(--primary-soft);
+  }
+}
+
+@layer components {
+  /* Typography scale */
+  .t-display {
+    @apply text-[2.5rem] leading-[1.05] font-bold tracking-[-0.035em] sm:text-6xl;
+  }
+  .t-title {
+    @apply text-2xl leading-tight font-bold tracking-[-0.02em] sm:text-3xl;
+  }
+  .t-section {
+    @apply text-lg leading-snug font-semibold tracking-[-0.01em] sm:text-xl;
+  }
+  .t-body {
+    @apply text-[0.95rem] leading-relaxed text-ink-2;
+  }
+  .t-meta {
+    @apply text-xs font-medium tracking-wide text-ink-3 uppercase;
+  }
+  .t-price {
+    @apply font-bold tracking-[-0.02em] tabular-nums;
+  }
+  .container-page {
+    @apply mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@keyframes route-dash {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+.route-animated {
+  stroke-dasharray: 4 8;
+  animation: route-dash 1.2s linear infinite;
+}
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.85);
+  }
+}
+.live-dot {
+  animation: pulse-dot 1.6s ease-in-out infinite;
+}
