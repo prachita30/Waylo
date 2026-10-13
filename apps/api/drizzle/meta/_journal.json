@@ -15,6 +15,13 @@
       "when": 1791881031153,
       "tag": "0001_identity",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791882246304,
+      "tag": "0002_flights",
+      "breakpoints": true
     }
   ]
 }

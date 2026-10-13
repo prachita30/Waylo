@@ -17,6 +17,8 @@ export const router = createBrowserRouter([
       { path: 'legal/:slug', lazy: lazyPage(() => import('@/pages/info/LegalPage')) },
       { path: 'partners', lazy: lazyPage(() => import('@/pages/info/Partners')) },
       { path: 'support', lazy: lazyPage(() => import('@/pages/info/SupportInfo')) },
+      { path: 'flights', lazy: lazyPage(() => import('@/pages/flights/FlightResults')) },
+      { path: 'flights/offers/:offerId', lazy: lazyPage(() => import('@/pages/flights/OfferDetail')) },
       {
         element: <RequireAuth />,
         children: [{ path: 'account', lazy: lazyPage(() => import('@/pages/account/Account')) }],

@@ -9,6 +9,7 @@ import { CLIENT_HEADER, csrfGuard } from './http/csrf';
 import { errorHandler, notFoundHandler } from './http/errors';
 import { limiter } from './http/rateLimit';
 import { authRouter } from './modules/auth/routes';
+import { flightsRouter } from './modules/flights/routes';
 import { healthRouter, metaRouter } from './modules/meta/routes';
 import { usersRouter } from './modules/users/routes';
 
@@ -48,6 +49,7 @@ export function createApp(ctx: AppContext) {
   v1.use(metaRouter(ctx));
   v1.use(authRouter(ctx));
   v1.use(usersRouter(ctx));
+  v1.use(flightsRouter(ctx));
   app.use('/api/v1', v1);
 
   app.use(notFoundHandler);

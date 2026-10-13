@@ -1,3 +1,4 @@
+import type { AirlineAdapter } from './adapters/airline/types';
 import type { Config } from './config';
 import type { Db, DbHandle } from './db/client';
 import type { Logger } from './lib/logger';
@@ -16,8 +17,10 @@ export interface Adapter {
   readonly info: AdapterInfo;
 }
 
-/** Registered integrations. Each later module adds its adapter here. */
-export type Adapters = Record<string, Adapter>;
+/** Registered integrations. Each module adds its adapter here. */
+export interface Adapters {
+  airline: AirlineAdapter;
+}
 
 export interface AppContext {
   config: Config;
@@ -31,9 +34,9 @@ export interface AppContext {
  * Production mode must fail safely: refuse to start when any registered
  * integration is still a sandbox implementation.
  */
-export function assertAdaptersAllowed(config: Config, adapters: Adapters): void {
+export function assertAdaptersAllowed(config: Config, adapters: Partial<Adapters> | Record<string, Adapter>): void {
   if (config.WAYLO_MODE !== 'production') return;
-  const sandboxed = Object.values(adapters).filter((a) => a.info.mode === 'sandbox');
+  const sandboxed = (Object.values(adapters) as Adapter[]).filter((a) => a.info.mode === 'sandbox');
   if (sandboxed.length) {
     const names = sandboxed.map((a) => `${a.info.kind}:${a.info.provider}`).join(', ');
     throw new Error(`WAYLO_MODE=production but these integrations are sandbox-only: ${names}. Configure live adapters or run in demo mode.`);

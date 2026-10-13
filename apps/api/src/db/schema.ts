@@ -1,8 +1,11 @@
 import { sql } from 'drizzle-orm';
 import {
   boolean,
+  check,
+  char,
   doublePrecision,
   index,
+  integer,
   jsonb,
   pgEnum,
   pgTable,
@@ -149,4 +152,99 @@ export const savedDestinations = pgTable(
     createdAt: createdAt(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.cityId] })],
+);
+
+// ---------------------------------------------------------------- flights
+
+export const cabinEnum = pgEnum('cabin_class', ['economy', 'premium_economy', 'business']);
+export const flightStatusEnum = pgEnum('flight_status', ['scheduled', 'delayed', 'cancelled', 'departed', 'landed']);
+export const offerStatusEnum = pgEnum('offer_status', ['draft', 'published', 'paused', 'expired', 'withdrawn']);
+
+export const airlines = pgTable('airlines', {
+  code: varchar('code', { length: 3 }).primaryKey(),
+  name: text('name').notNull(),
+  /** Fictional airlines used by the sandbox adapter. Always labelled in the UI. */
+  isSandbox: boolean('is_sandbox').notNull().default(false),
+  brandColor: varchar('brand_color', { length: 7 }).notNull().default('#2648E8'),
+  createdAt: createdAt(),
+});
+
+/** One scheduled operation of a flight (airline + number + departure instant). */
+export const flights = pgTable(
+  'flights',
+  {
+    id: pk(),
+    airlineCode: varchar('airline_code', { length: 3 })
+      .notNull()
+      .references(() => airlines.code),
+    flightNumber: varchar('flight_number', { length: 8 }).notNull(),
+    origin: varchar('origin', { length: 3 })
+      .notNull()
+      .references(() => airports.code),
+    destination: varchar('destination', { length: 3 })
+      .notNull()
+      .references(() => airports.code),
+    departAt: timestamp('depart_at', { withTimezone: true }).notNull(),
+    arriveAt: timestamp('arrive_at', { withTimezone: true }).notNull(),
+    status: flightStatusEnum('status').notNull().default('scheduled'),
+    /** Latest known arrival estimate from a flight-status source. Null when unknown. */
+    estimatedArriveAt: timestamp('estimated_arrive_at', { withTimezone: true }),
+    statusUpdatedAt: timestamp('status_updated_at', { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex('flights_operation_uq').on(t.airlineCode, t.flightNumber, t.departAt),
+    index('flights_route_idx').on(t.origin, t.destination, t.departAt),
+    check('flights_times_ck', sql`${t.arriveAt} > ${t.departAt}`),
+  ],
+);
+
+export const flightOffers = pgTable(
+  'flight_offers',
+  {
+    id: pk(),
+    flightId: uuid('flight_id')
+      .notNull()
+      .references(() => flights.id),
+    /** 'partner' for offers published in the partner portal, otherwise the adapter provider key. */
+    source: varchar('source', { length: 32 }).notNull(),
+    externalRef: varchar('external_ref', { length: 128 }).notNull(),
+    partnerId: uuid('partner_id'),
+    cabin: cabinEnum('cabin').notNull(),
+    /** All-inclusive fare per adult, in minor units. */
+    fareMinor: integer('fare_minor').notNull(),
+    taxesMinor: integer('taxes_minor').notNull().default(0),
+    /**
+     * The airline's published regular fare for the same flight and cabin. A discount is shown
+     * only when this is present; it is never estimated by WAYLO.
+     */
+    referenceFareMinor: integer('reference_fare_minor'),
+    referenceSource: text('reference_source'),
+    currency: char('currency', { length: 3 }).notNull().default('INR'),
+    baggageCabinKg: integer('baggage_cabin_kg').notNull().default(7),
+    baggageCheckedKg: integer('baggage_checked_kg').notNull().default(0),
+    refundable: boolean('refundable').notNull().default(false),
+    changeFeeMinor: integer('change_fee_minor'),
+    cancelFeeMinor: integer('cancel_fee_minor'),
+    fareRules: text('fare_rules').notNull().default(''),
+    eligibility: jsonb('eligibility').$type<{ maxPassengers?: number; minAdvanceHours?: number; notes?: string }>().notNull().default({}),
+    /** Seats the airline reports as sellable at this fare. Null when the source does not say. */
+    seatsAvailable: integer('seats_available'),
+    /** Partner-set cap on how many seats WAYLO may sell at this fare. */
+    inventoryCap: integer('inventory_cap'),
+    seatsSold: integer('seats_sold').notNull().default(0),
+    validFrom: timestamp('valid_from', { withTimezone: true }).notNull().defaultNow(),
+    validUntil: timestamp('valid_until', { withTimezone: true }).notNull(),
+    status: offerStatusEnum('status').notNull().default('published'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex('offers_source_ref_uq').on(t.source, t.externalRef),
+    index('offers_flight_idx').on(t.flightId),
+    index('offers_status_valid_idx').on(t.status, t.validUntil),
+    check('offers_fare_ck', sql`${t.fareMinor} > 0 AND ${t.taxesMinor} >= 0 AND ${t.taxesMinor} <= ${t.fareMinor}`),
+    check('offers_sold_ck', sql`${t.seatsSold} >= 0 AND (${t.inventoryCap} IS NULL OR ${t.seatsSold} <= ${t.inventoryCap})`),
+  ],
 );

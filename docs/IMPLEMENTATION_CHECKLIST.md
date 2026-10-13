@@ -47,7 +47,18 @@ Update this file at the end of every module. On resumption, continue from the fi
 - [x] Tests: web 22 total (homepage sections, search validation + navigation, ride tab, wishlist auth redirect and save, legal draft notice)
 - [x] Visual check at desktop width; hero search fields re-laid-out after the check (date on its own row)
 
-## Phase 4 — Flight search and offer discovery
+## Phase 4 — Flight search and offer discovery ✅ (2026-10-13)
+- [x] Migration 0002_flights: airlines (is_sandbox, brand colour), flights (one row per operation, status + estimated arrival for Phase 8, arrive>depart check), flight_offers (integer paise fares + taxes, optional sourced reference fare, baggage, refundability, change/cancel fees, fare rules, eligibility, seats_available, inventory_cap/seats_sold with check constraint, validity window, status), indexes on route/time and status/validity
+- [x] AirlineAdapter interface (airlines, searchOffers) + deterministic SandboxAirlineAdapter with fictional airlines (Saffron Air S1, Monsoon Airways S2, Konkan Jet S3), last-minute ₹500–₹1,000 base fares released only within 72h (business hypothesis, labelled sandbox), sold-out cases, outage switch for tests
+- [x] Production mode refuses to start with the sandbox airline (assertAdaptersAllowed)
+- [x] Search service: airport-local day bounds via IANA zones, adapter results cached as offers, stale adapter offers withdrawn, partner-published offers merged, outage degrades to partner offers with a warning
+- [x] Filters: max price, departure windows (local time), refundable only; sort by price / departure / duration with bookable first; pagination; flexible ±3 days (never past)
+- [x] Availability: min(airline seats, partner cap − sold); limited / sold_out / insufficient-for-party / expired; savings only with a sourced reference fare
+- [x] Endpoints: GET /flights/search, GET /flights/offers/:offerId (rate-limited search)
+- [x] Shared time helpers (zonedTimeToUtc, zonedDayRange, localDate/Hour, haversine) with DST tests
+- [x] Web: results page (compact search, flexible-date strip, filters sidebar / mobile sheet, budget slider, departure chips, sort, empty/error/degraded states, pagination), FlightCard, AirlineMark, OfferExpiry countdown, PriceBreakdown, offer detail page (itinerary, baggage, fees, rules, saving source, sandbox notice)
+- [x] Tests: shared 13, API 50 (17 flight tests), web 30 (8 flight page tests); verified live in browser against the sandbox adapter
+
 ## Phase 5 — Flight booking workflow
 ## Phase 6 — Shared airport-ride requests
 ## Phase 7 — Ride matching and fare splitting
@@ -61,4 +72,4 @@ Update this file at the end of every module. On resumption, continue from the fi
 ## Phase 15 — Integration testing, security review and deployment readiness
 
 ## Next action
-Phase 4: flight search and offer discovery (airline adapter interface, mock adapter, offers schema, search API, results UI).
+Phase 5: flight booking workflow (price lock/validate, passenger details, idempotent booking, payment handoff, ticketing states, cancellation).

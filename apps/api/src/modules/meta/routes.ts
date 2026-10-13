@@ -1,7 +1,7 @@
 import { brand } from '@waylo/shared';
 import { asc, eq } from 'drizzle-orm';
 import { Router } from 'express';
-import type { AppContext } from '../../context';
+import type { Adapter, AppContext } from '../../context';
 import { DEMO_ACCOUNTS, DEMO_PASSWORD } from '../../db/demo-accounts';
 import { airports, cities } from '../../db/schema';
 
@@ -23,7 +23,7 @@ export function metaRouter(ctx: AppContext): Router {
   const r = Router();
 
   r.get('/meta', (_req, res) => {
-    const adapters = Object.values(ctx.adapters).map((a) => a.info);
+    const adapters = (Object.values(ctx.adapters) as Adapter[]).map((a) => a.info);
     res.json({
       brand: { name: brand.name, tagline: brand.tagline, supportEmail: brand.supportEmail },
       mode: ctx.config.WAYLO_MODE,

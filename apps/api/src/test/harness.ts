@@ -5,14 +5,14 @@ import request from 'supertest';
 import { createApp } from '../app';
 import { bootstrap } from '../bootstrap';
 import { loadConfig } from '../config';
-import type { AppContext } from '../context';
+import type { Adapters, AppContext } from '../context';
 import { DEMO_PASSWORD } from '../db/demo-accounts';
 import { seed } from '../db/seed';
 
 export const TEST_ORIGIN = 'http://localhost:5173';
 
 /** Fresh in-memory PostgreSQL (PGlite), migrated and seeded, plus a supertest agent. */
-export async function createTestApp(env: Record<string, string> = {}) {
+export async function createTestApp(env: Record<string, string> = {}, opts: { adapters?: Partial<Adapters> } = {}) {
   const config = loadConfig({
     NODE_ENV: 'test',
     LOG_LEVEL: 'silent',
@@ -22,7 +22,7 @@ export async function createTestApp(env: Record<string, string> = {}) {
     UPLOAD_DIR: mkdtempSync(path.join(tmpdir(), 'waylo-test-')),
     ...env,
   });
-  const ctx: AppContext = await bootstrap({ config, pgliteDir: 'memory://' });
+  const ctx: AppContext = await bootstrap({ config, pgliteDir: 'memory://', adapters: opts.adapters });
   await seed(ctx.db);
   const app = createApp(ctx);
   return {
