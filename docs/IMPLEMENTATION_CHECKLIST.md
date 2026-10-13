@@ -37,7 +37,16 @@ Update this file at the end of every module. On resumption, continue from the fi
 - [x] Tests: API 33 (auth, sessions, CSRF, rate limit, suspension, profile, uploads, password change, deletion); web 16 (pages with mocked API, redirects, role gate, open-redirect guard)
 - [~] Playwright E2E suite written (e2e/auth.spec.ts, isolated API :4100 + web :5174, uses installed Edge or Chrome). **Not executed here:** the desktop app's packaged environment blocks launching Edge. Run `npm run test:e2e` on a normal machine.
 
-## Phase 3 — Passenger homepage and navigation
+## Phase 3 — Passenger homepage and navigation ✅ (2026-10-13)
+- [x] Editorial hero ("Your next journey, for less."), tabbed SearchPanel (flight offers / shared airport ride) with validation and query-string handoff
+- [x] Pinterest-style destination masonry (CSS columns) with original illustrations, tags, and save-to-wishlist heart (signed-out → sign in and return)
+- [x] How it works (flights and rides), illustrative fare-split explainer computed with shared splitEvenly and labelled "Illustrative example"
+- [x] Trip-idea editorial cards, trust & safety section, CTA band, footer links
+- [x] Info pages: /legal/:slug (terms, privacy, refunds, safety; drafts flagged "requires legal review"), /partners, /support (help entry)
+- [x] Header nav + mobile bottom nav + user menu; date helpers (IST display, UTC transport)
+- [x] Tests: web 22 total (homepage sections, search validation + navigation, ride tab, wishlist auth redirect and save, legal draft notice)
+- [x] Visual check at desktop width; hero search fields re-laid-out after the check (date on its own row)
+
 ## Phase 4 — Flight search and offer discovery
 ## Phase 5 — Flight booking workflow
 ## Phase 6 — Shared airport-ride requests
@@ -52,4 +61,4 @@ Update this file at the end of every module. On resumption, continue from the fi
 ## Phase 15 — Integration testing, security review and deployment readiness
 
 ## Next action
-Phase 3: passenger homepage and navigation (landing page, discovery, how it works, trust and safety, legal pages).
+Phase 4: flight search and offer discovery (airline adapter interface, mock adapter, offers schema, search API, results UI).

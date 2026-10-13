@@ -14,6 +14,9 @@ export const router = createBrowserRouter([
     errorElement: <RouteError />,
     children: [
       { index: true, lazy: lazyPage(() => import('@/pages/Home')) },
+      { path: 'legal/:slug', lazy: lazyPage(() => import('@/pages/info/LegalPage')) },
+      { path: 'partners', lazy: lazyPage(() => import('@/pages/info/Partners')) },
+      { path: 'support', lazy: lazyPage(() => import('@/pages/info/SupportInfo')) },
       {
         element: <RequireAuth />,
         children: [{ path: 'account', lazy: lazyPage(() => import('@/pages/account/Account')) }],
