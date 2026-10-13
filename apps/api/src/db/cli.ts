@@ -20,8 +20,8 @@ try {
   await handle.migrate();
   console.log(`Migrations applied (${handle.kind}).`);
   if (cmd === 'seed' || cmd === 'reset') {
-    await seed(handle.db);
-    console.log('Seed data loaded.');
+    await seed(handle.db, { demo: config.WAYLO_MODE === 'demo' });
+    console.log(config.WAYLO_MODE === 'demo' ? 'Reference and demo data loaded.' : 'Reference data loaded (production mode: no demo data).');
   }
 } finally {
   await handle.close();

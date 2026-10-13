@@ -15,6 +15,10 @@ const EnvSchema = z.object({
   WEB_ORIGIN: z.string().default('http://localhost:5173'),
   COOKIE_SECURE: bool.optional(),
   SESSION_TTL_HOURS: z.coerce.number().int().positive().default(24 * 14),
+  /** Max login/register attempts per IP per 15 minutes. */
+  AUTH_RATE_LIMIT: z.coerce.number().int().positive().default(20),
+  /** Max general API requests per IP per minute. */
+  API_RATE_LIMIT: z.coerce.number().int().positive().default(300),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   TRUST_PROXY: bool.default(false),
   PAYMENT_WEBHOOK_SECRET: z.string().min(16).optional(),

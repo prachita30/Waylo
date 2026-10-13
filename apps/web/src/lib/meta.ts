@@ -11,6 +11,7 @@ export interface Meta {
   mode: 'demo' | 'production';
   demo: boolean;
   adapters: AdapterInfo[];
+  demoLogin: { password: string; accounts: { email: string; fullName: string; role: string }[] } | null;
 }
 
 export function useMeta() {

@@ -21,7 +21,7 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
+    port: Number(process.env.WEB_PORT ?? 5173),
     strictPort: true,
     fs: { allow: [path.resolve(here, '../..')] },
     proxy: { '/api': { target: API, changeOrigin: false }, '/health': API },

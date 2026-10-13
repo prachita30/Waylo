@@ -96,6 +96,8 @@ export function ConfirmDialog({
               try {
                 await onConfirm();
                 onOpenChange(false);
+              } catch {
+                // Keep the dialog open; the caller renders the error inside it.
               } finally {
                 setBusy(false);
               }

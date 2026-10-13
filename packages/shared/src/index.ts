@@ -1,3 +1,4 @@
 export * from './brand';
 export * from './money';
 export * from './roles';
+export * from './schemas/auth';

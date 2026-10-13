@@ -2,6 +2,7 @@ import { brand } from '@waylo/shared';
 import { asc, eq } from 'drizzle-orm';
 import { Router } from 'express';
 import type { AppContext } from '../../context';
+import { DEMO_ACCOUNTS, DEMO_PASSWORD } from '../../db/demo-accounts';
 import { airports, cities } from '../../db/schema';
 
 export function healthRouter(ctx: AppContext): Router {
@@ -28,6 +29,11 @@ export function metaRouter(ctx: AppContext): Router {
       mode: ctx.config.WAYLO_MODE,
       demo: ctx.config.WAYLO_MODE === 'demo' || adapters.some((a) => a.mode === 'sandbox'),
       adapters,
+      // Demo-mode only: publicly documented fixture accounts for testers. Never present in production mode.
+      demoLogin:
+        ctx.config.WAYLO_MODE === 'demo'
+          ? { password: DEMO_PASSWORD, accounts: DEMO_ACCOUNTS.map(({ email, fullName, role }) => ({ email, fullName, role })) }
+          : null,
     });
   });
 

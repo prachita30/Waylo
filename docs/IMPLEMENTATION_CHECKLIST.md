@@ -23,7 +23,20 @@ Update this file at the end of every module. On resumption, continue from the fi
 
 **Environment note:** this workspace sits in a virtualised Windows folder where node_modules symlinks resolve inconsistently. Vite/Vitest configs use canonical real paths plus an explicit '@waylo/shared' alias. This is harmless on normal machines.
 
-## Phase 2 — Authentication and user profiles
+## Phase 2 — Authentication and user profiles ✅ (2026-10-13)
+- [x] Migration 0001_identity: users (role + status enums, unique lower-cased email), sessions (hashed tokens), user_preferences, saved_destinations
+- [x] scrypt password hashing (parameters stored in hash), constant-shape login errors, dummy-hash timing equalisation
+- [x] Server-side sessions: opaque 256-bit token in HttpOnly SameSite=Lax cookie, only SHA-256 stored, revocable, sliding last-seen
+- [x] Backend role gates (requireAuth / requireRole); client-supplied role ignored on register and profile update
+- [x] Endpoints: POST /auth/register, /auth/login, /auth/logout; GET/PATCH /users/me; PUT /users/me/preferences; GET/PUT/DELETE /users/me/saved-destinations[/:cityId]; POST/DELETE /users/me/avatar; GET /avatars/:file; POST /users/me/password; DELETE /users/me
+- [x] Avatar upload: 2 MB limit, magic-byte type check (PNG/JPEG/WebP), random file names, auth-only serving, traversal-safe
+- [x] Account deletion: password + typed DELETE, PII erased, sessions revoked, email freed, audit event, deletionBlockers hook for active trips (used by later modules)
+- [x] Rate limits: auth/sensitive endpoints per IP (AUTH_RATE_LIMIT), general API (API_RATE_LIMIT)
+- [x] Demo accounts (passenger ×3, operator, driver, partner, admin), seeded only in demo mode, flagged is_demo, quick-fill on login page only when /meta advertises demo mode
+- [x] Web: Login, Register (shared zod schemas), RequireAuth (role-aware), UserMenu, Account page (profile, photo, preferences, saved destinations, password, delete), Avatar/AvatarStack, Toggle, safe ?next= redirects
+- [x] Tests: API 33 (auth, sessions, CSRF, rate limit, suspension, profile, uploads, password change, deletion); web 16 (pages with mocked API, redirects, role gate, open-redirect guard)
+- [~] Playwright E2E suite written (e2e/auth.spec.ts, isolated API :4100 + web :5174, uses installed Edge or Chrome). **Not executed here:** the desktop app's packaged environment blocks launching Edge. Run  on a normal machine.
+
 ## Phase 3 — Passenger homepage and navigation
 ## Phase 4 — Flight search and offer discovery
 ## Phase 5 — Flight booking workflow
@@ -39,4 +52,4 @@ Update this file at the end of every module. On resumption, continue from the fi
 ## Phase 15 — Integration testing, security review and deployment readiness
 
 ## Next action
-Phase 2: authentication and user profiles.
+Phase 3: passenger homepage and navigation (landing page, discovery, how it works, trust and safety, legal pages).

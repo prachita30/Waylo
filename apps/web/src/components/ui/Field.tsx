@@ -130,6 +130,47 @@ export function Checkbox({
   );
 }
 
+/** On/off switch with an accessible label and description. */
+export function Toggle({
+  label,
+  description,
+  checked,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  description?: ReactNode;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
+  const id = useId();
+  return (
+    <div className="flex items-center justify-between gap-4 py-3">
+      <div>
+        <label htmlFor={id} className="text-sm font-semibold">
+          {label}
+        </label>
+        {description && <p className="text-sm text-ink-3">{description}</p>}
+      </div>
+      <button
+        id={id}
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        disabled={disabled}
+        onClick={() => onChange(!checked)}
+        className={cn(
+          'relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition disabled:opacity-50',
+          checked ? 'bg-primary' : 'bg-line',
+        )}
+      >
+        <span className={cn('inline-block size-5 rounded-full bg-white shadow transition', checked ? 'translate-x-6' : 'translate-x-1')} />
+      </button>
+    </div>
+  );
+}
+
 /** A segmented single-choice control (e.g. cabin class), keyboard accessible as a radio group. */
 export function Segmented<T extends string>({
   label,

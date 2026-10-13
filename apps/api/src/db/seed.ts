@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import type { Db } from './client';
+import { seedDemoAccounts } from './demo-accounts';
 import { airports, appConfig, cities } from './schema';
 
 /** Real Indian cities and airports (public reference data). Coordinates are approximate. */
@@ -52,6 +53,13 @@ export async function seedReferenceData(db: Db): Promise<void> {
   await db.insert(appConfig).values(DEFAULT_CONFIG).onConflictDoNothing();
 }
 
-export async function seed(db: Db): Promise<void> {
+export interface SeedOptions {
+  /** Demo accounts and sample data are only loaded in demo mode. */
+  demo: boolean;
+}
+
+export async function seed(db: Db, opts: SeedOptions = { demo: true }): Promise<void> {
   await seedReferenceData(db);
+  if (!opts.demo) return;
+  await seedDemoAccounts(db);
 }
