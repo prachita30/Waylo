@@ -43,6 +43,13 @@
       "when": 1791884715946,
       "tag": "0005_ride_groups",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791885432399,
+      "tag": "0006_flight_aware",
+      "breakpoints": true
     }
   ]
 }

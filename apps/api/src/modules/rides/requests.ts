@@ -163,6 +163,7 @@ export async function toRideRequestDto(db: DbOrTx, r: RideRequestRow) {
     .where(eq(rideParticipants.requestId, r.id))
     .orderBy(desc(rideParticipants.joinedAt))
     .limit(1);
+  const [flight] = r.flightId ? await db.select().from(flights).where(eq(flights.id, r.flightId)) : [];
   return {
     id: r.id,
     status: r.status,
@@ -171,6 +172,16 @@ export async function toRideRequestDto(db: DbOrTx, r: RideRequestRow) {
     pickupZone: zone ? { id: zone.id, terminal: zone.terminal, name: zone.name, instructions: zone.instructions } : null,
     flightNumber: r.flightNumber,
     flightLinked: !!r.flightId,
+    flight: flight
+      ? {
+          status: flight.status,
+          scheduledArrivalAt: flight.arriveAt.toISOString(),
+          estimatedArrivalAt: flight.estimatedArriveAt?.toISOString() ?? null,
+          delayMinutes: flight.estimatedArriveAt ? Math.round((flight.estimatedArriveAt.getTime() - flight.arriveAt.getTime()) / 60_000) : 0,
+          updatedAt: flight.statusUpdatedAt?.toISOString() ?? null,
+        }
+      : null,
+    closedReason: r.closedReason,
     flightBookingId: r.flightBookingId,
     scheduledArrivalAt: r.scheduledArrivalAt.toISOString(),
     expectedArrivalAt: r.expectedArrivalAt.toISOString(),

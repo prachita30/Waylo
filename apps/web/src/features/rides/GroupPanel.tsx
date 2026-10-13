@@ -14,7 +14,9 @@ import { PriceBreakdown } from '@/components/travel/PriceBreakdown';
 import { CapacityMeter, vehicleFareLines } from '@/components/travel/RideMatchCard';
 import { api, ApiError } from '@/lib/api';
 import { formatTime } from '@/lib/dates';
-import { type RideGroup, useGroup, VEHICLE_LABEL } from '@/lib/rides';
+import { READINESS_LABEL, type Readiness, type RideGroup, useGroup, VEHICLE_LABEL } from '@/lib/rides';
+import { RouteMap } from '@/components/travel/RouteMap';
+import { Select } from '@/components/ui/Field';
 
 const ORDER: RideGroup['status'][] = ['forming', 'locked', 'assigned', 'en_route', 'arrived', 'in_progress', 'completed'];
 
@@ -43,6 +45,10 @@ export function GroupPanel({ groupId, requestId }: { groupId: string; requestId:
   const [leaveOpen, setLeaveOpen] = useState(false);
   const [cancelRequest, setCancelRequest] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const readiness = useMutation({
+    mutationFn: (value: Readiness) => api.post<{ group: RideGroup }>(`/rides/groups/${groupId}/readiness`, { readiness: value }),
+    onSuccess: (r) => qc.setQueryData(['ride-group', groupId], r.group),
+  });
   const leave = useMutation({
     mutationFn: () => api.post<{ feeMinor: number; requestStatus: string }>(`/rides/groups/${groupId}/leave`, { cancelRequest }),
     onSuccess: async () => {
@@ -74,6 +80,16 @@ export function GroupPanel({ groupId, requestId }: { groupId: string; requestId:
               <CapacityMeter label="Seats" used={g.seatsTaken} total={g.capacity.seats} icon={<Users className="size-3.5" aria-hidden />} />
               <CapacityMeter label="Luggage" used={g.luggageTaken} total={g.capacity.luggageUnits} icon={<Briefcase className="size-3.5" aria-hidden />} />
             </div>
+            {g.map.pickup && (
+              <RouteMap
+                className="mt-5"
+                caption="Route overview (schematic, drop-offs shown by area)"
+                points={[
+                  { ...g.map.pickup, label: `Pickup ${g.pickupZone?.terminal ?? ''}`.trim(), kind: 'pickup' as const },
+                  ...[...g.map.stops].sort((a, b) => a.order - b.order).map((s) => ({ lat: s.lat, lng: s.lng, label: s.isMe ? `You · ${s.area}` : s.area, kind: s.isMe ? ('me' as const) : ('stop' as const) })),
+                ]}
+              />
+            )}
             <ul className="mt-5 divide-y divide-line">
               {g.members.map((m) => (
                 <li key={m.dropoffOrder + m.firstName} className="flex items-center justify-between gap-3 py-3">
@@ -84,7 +100,9 @@ export function GroupPanel({ groupId, requestId }: { groupId: string; requestId:
                         {m.isMe ? 'You' : m.firstName}
                         {m.seats > 1 && <span className="font-normal text-ink-3"> +{m.seats - 1}</span>}
                       </span>
-                      <span className="block text-xs text-ink-3">Drop-off {m.dropoffOrder} · {m.area}</span>
+                      <span className="block text-xs text-ink-3">
+                        Drop-off {m.dropoffOrder} · {m.area} · <span className={m.readiness === 'at_pickup' || m.readiness === 'ready' ? 'text-mint' : undefined}>{READINESS_LABEL[m.readiness]}</span>
+                      </span>
                     </span>
                   </span>
                   <span className="text-xs text-ink-3">~{formatTime(m.estimatedDropoffAt)}</span>
@@ -125,6 +143,21 @@ export function GroupPanel({ groupId, requestId }: { groupId: string; requestId:
                 <PriceBreakdown className="mt-2" lines={vehicleFareLines(g.vehicleFare)} totalLabel="Vehicle total" totalMinor={g.vehicleFare.totalMinor} />
               </details>
               {me.soloOk && g.members.length === 1 && <Badge tone="lavender">Riding alone if nobody joins</Badge>}
+              {active && ['forming', 'locked', 'assigned', 'en_route', 'arrived'].includes(g.status) && (
+                <Select
+                  label="Your status after landing"
+                  hint="Shared with your co-riders and driver so pickup can be coordinated."
+                  value={me.readiness}
+                  onChange={(e) => readiness.mutate(e.target.value as Readiness)}
+                  disabled={readiness.isPending}
+                >
+                  {(Object.keys(READINESS_LABEL) as Readiness[]).map((k) => (
+                    <option key={k} value={k}>
+                      {READINESS_LABEL[k]}
+                    </option>
+                  ))}
+                </Select>
+              )}
               {active && (
                 <Button variant="secondary" block onClick={() => { setErr(null); setLeaveOpen(true); }}>
                   <LogOut className="size-4" aria-hidden /> Leave group

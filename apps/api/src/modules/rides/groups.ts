@@ -49,7 +49,7 @@ export function toRider(r: RideRequestRow, maxTotalMinor?: number): MatchRider {
   };
 }
 
-async function matchOptions(ctx: AppContext, db: DbOrTx, s: RideSettings, zoneId: string, airport: string, at: Date, splitMethod: SplitMethod): Promise<MatchOptions> {
+export async function matchOptions(ctx: AppContext, db: DbOrTx, s: RideSettings, zoneId: string, airport: string, at: Date, splitMethod: SplitMethod): Promise<MatchOptions> {
   const [zone] = await db.select().from(pickupZones).where(eq(pickupZones.id, zoneId));
   return {
     ...DEFAULT_MATCH_OPTIONS,
@@ -64,7 +64,7 @@ async function matchOptions(ctx: AppContext, db: DbOrTx, s: RideSettings, zoneId
   };
 }
 
-async function activeMembers(db: DbOrTx, groupId: string) {
+export async function activeMembers(db: DbOrTx, groupId: string) {
   return db
     .select({ p: rideParticipants, r: rideRequests })
     .from(rideParticipants)
@@ -77,7 +77,7 @@ const lockTime = (plannedPickupAt: number, s: RideSettings, now: Date) =>
   new Date(Math.min(plannedPickupAt, Math.max(now.getTime() + 5 * 60_000, plannedPickupAt - s.lockLeadMinutes * 60_000)));
 
 /** Writes a plan onto the group and its active participants. Prices never exceed what each rider agreed to. */
-async function applyPlan(tx: Tx, group: GroupRow, plan: GroupPlan, s: RideSettings, now: Date) {
+export async function applyPlan(tx: Tx, group: GroupRow, plan: GroupPlan, s: RideSettings, now: Date) {
   const members = await activeMembers(tx, group.id);
   let plannedSum = 0;
   let cappedSum = 0;
@@ -118,6 +118,33 @@ async function applyPlan(tx: Tx, group: GroupRow, plan: GroupPlan, s: RideSettin
       fare: { ...plan.fare },
       vehicleFareMinor: plan.fare.totalMinor,
       platformSubsidyMinor: plannedSum - cappedSum,
+      version: sql`${rideGroups.version} + 1`,
+    })
+    .where(eq(rideGroups.id, group.id));
+}
+
+/**
+ * Moves pickup and drop-off estimates after an arrival change without touching prices.
+ * Used for locked/assigned groups, whose prices are final.
+ */
+export async function reschedule(tx: Tx, group: GroupRow, plan: GroupPlan, s: RideSettings, now: Date) {
+  const members = await activeMembers(tx, group.id);
+  for (const { p } of members) {
+    const m = plan.members[p.requestId];
+    if (!m) continue;
+    await tx
+      .update(rideParticipants)
+      .set({ waitMinutes: m.waitMinutes, detourMinutes: m.detourMinutes, estimatedDropoffAt: new Date(m.dropoffAt), dropoffOrder: m.dropoffOrder })
+      .where(eq(rideParticipants.id, p.id));
+  }
+  await tx
+    .update(rideGroups)
+    .set({
+      plannedPickupAt: new Date(plan.pickupAt),
+      lockAt: group.status === 'forming' ? lockTime(plan.pickupAt, s, now) : group.lockAt,
+      route: { order: plan.order, legs: plan.route.legs },
+      routeDistanceMeters: plan.route.distanceMeters,
+      routeDurationSeconds: plan.route.durationSeconds,
       version: sql`${rideGroups.version} + 1`,
     })
     .where(eq(rideGroups.id, group.id));
@@ -535,7 +562,19 @@ export async function toGroupDto(ctx: AppContext, g: GroupRow, viewerId: string)
       seats: x.p.seats,
       dropoffOrder: x.p.dropoffOrder,
       estimatedDropoffAt: x.p.estimatedDropoffAt.toISOString(),
+      readiness: x.p.readiness,
     })),
+    // Map points: pickup exactly; drop-offs at area level (≈1 km) so co-riders never see addresses.
+    map: {
+      pickup: zone ? { lat: zone.lat, lng: zone.lng } : null,
+      stops: active.map((x) => ({
+        order: x.p.dropoffOrder,
+        area: x.r.destinationArea,
+        isMe: x.p.userId === viewerId,
+        lat: Math.round(x.r.destinationLat * 100) / 100,
+        lng: Math.round(x.r.destinationLng * 100) / 100,
+      })),
+    },
     me: me
       ? {
           participantId: me.p.id,
@@ -550,6 +589,8 @@ export async function toGroupDto(ctx: AppContext, g: GroupRow, viewerId: string)
           finalTotalMinor: me.p.finalTotalMinor,
           soloTotalMinor: me.p.soloTotalMinor,
           soloOk: me.p.soloOk,
+          readiness: me.p.readiness,
+          removedReason: me.p.removedReason,
           cancellationFeeMinor: me.p.cancellationFeeMinor,
           leaveFeeNowMinor: ACTIVE.includes(me.p.status) ? cancellationFee(me.p, g, s, new Date()) : null,
         }
@@ -568,4 +609,16 @@ export async function groupIdForRequest(db: DbOrTx, requestId: string) {
     .orderBy(sql`${rideParticipants.joinedAt} desc`)
     .limit(1);
   return p?.groupId ?? null;
+}
+
+export const READINESS = ['not_landed', 'landed', 'at_baggage', 'ready', 'at_pickup'] as const;
+
+/** Rider-reported progress after landing, shown to co-riders and the driver. */
+export async function setReadiness(ctx: AppContext, user: AuthUser, groupId: string, readiness: (typeof READINESS)[number], now = new Date()) {
+  const [p] = await ctx.db
+    .select()
+    .from(rideParticipants)
+    .where(and(eq(rideParticipants.groupId, groupId), eq(rideParticipants.userId, user.id), inArray(rideParticipants.status, ACTIVE)));
+  if (!p) throw notFound('Ride group');
+  await ctx.db.update(rideParticipants).set({ readiness, readinessUpdatedAt: now }).where(eq(rideParticipants.id, p.id));
 }

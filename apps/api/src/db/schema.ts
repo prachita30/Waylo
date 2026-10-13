@@ -449,6 +449,7 @@ export const rideRequests = pgTable(
     wheelchair: boolean('wheelchair').notNull().default(false),
     notes: varchar('notes', { length: 280 }),
     status: rideRequestStatusEnum('status').notNull().default('open'),
+    closedReason: varchar('closed_reason', { length: 40 }),
     cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -470,6 +471,8 @@ export const vehicleClassEnum = pgEnum('vehicle_class', ['sedan', 'suv', 'van'])
 export const splitMethodEnum = pgEnum('split_method', ['equal_per_seat', 'distance_weighted']);
 export const rideGroupStatusEnum = pgEnum('ride_group_status', ['forming', 'locked', 'assigned', 'en_route', 'arrived', 'in_progress', 'completed', 'cancelled']);
 export const participantStatusEnum = pgEnum('ride_participant_status', ['joined', 'payment_due', 'confirmed', 'left', 'removed', 'no_show', 'completed']);
+/** Rider-reported progress after landing. WAYLO does not infer baggage or exit times. */
+export const readinessEnum = pgEnum('rider_readiness', ['not_landed', 'landed', 'at_baggage', 'ready', 'at_pickup']);
 
 export const rideGroups = pgTable(
   'ride_groups',
@@ -548,6 +551,9 @@ export const rideParticipants = pgTable(
     finalTotalMinor: integer('final_total_minor'),
     soloTotalMinor: integer('solo_total_minor').notNull(),
     cancellationFeeMinor: integer('cancellation_fee_minor'),
+    readiness: readinessEnum('readiness').notNull().default('not_landed'),
+    readinessUpdatedAt: timestamp('readiness_updated_at', { withTimezone: true }),
+    removedReason: varchar('removed_reason', { length: 32 }),
     joinedAt: timestamp('joined_at', { withTimezone: true }).notNull().defaultNow(),
     leftAt: timestamp('left_at', { withTimezone: true }),
   },

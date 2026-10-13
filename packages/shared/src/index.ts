@@ -7,3 +7,4 @@ export * from './schemas/booking';
 export * from './rides';
 export * from './fares';
 export * from './matching';
+export * from './geo';

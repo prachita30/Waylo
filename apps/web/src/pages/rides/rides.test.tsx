@@ -38,6 +38,8 @@ const request = (over: Partial<RideRequest> = {}): RideRequest => ({
   pickupZone: AREAS.items[0]!.zones[1]!,
   flightNumber: 'S1807',
   flightLinked: true,
+  flight: { status: 'scheduled', scheduledArrivalAt: '2026-10-20T11:10:00Z', estimatedArrivalAt: '2026-10-20T11:10:00Z', delayMinutes: 0, updatedAt: null },
+  closedReason: null,
   flightBookingId: null,
   scheduledArrivalAt: '2026-10-20T11:10:00Z',
   expectedArrivalAt: '2026-10-20T11:10:00Z',
@@ -129,12 +131,26 @@ describe('Ride request detail', () => {
     renderRoutes([{ path: '/trips/rides/:requestId', element: <RideRequestDetail /> }], '/trips/rides/r1');
     expect(await screen.findByRole('status', { name: '' })).toHaveTextContent('Looking for riders');
     expect(screen.getByText(/Wait up to 20 min · detour up to 15 min/)).toBeInTheDocument();
-    expect(screen.getByText('Flight tracked')).toBeInTheDocument();
+    expect(screen.getByText('On time')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Cancel request' }));
     const dialog = await screen.findByRole('dialog');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel request' }));
     await waitFor(() => expect(calls.some((c) => c.path === '/rides/requests/r1/cancel')).toBe(true));
     expect(await screen.findByText('Request cancelled')).toBeInTheDocument();
+  });
+
+  it('explains a flight delay and a cancelled flight', async () => {
+    mockApi({
+      'GET /rides/requests/r1': () => ({ body: { request: request({ status: 'open', expectedArrivalAt: '2026-10-20T11:50:00Z', flight: { status: 'delayed', scheduledArrivalAt: '2026-10-20T11:10:00Z', estimatedArrivalAt: '2026-10-20T11:50:00Z', delayMinutes: 40, updatedAt: null } }) } }),
+      'GET /rides/requests/r1/matches': () => ({ body: MATCHES }),
+    });
+    const v = renderRoutes([{ path: '/trips/rides/:requestId', element: <RideRequestDetail /> }], '/trips/rides/r1');
+    expect(await screen.findByText('Flight delayed by 40 min')).toBeInTheDocument();
+    expect(screen.getByText('Delayed 40 min')).toBeInTheDocument();
+    v.unmount();
+    mockApi({ 'GET /rides/requests/r1': () => ({ body: { request: request({ status: 'cancelled', closedReason: 'flight_cancelled' }) } }) });
+    renderRoutes([{ path: '/trips/rides/:requestId', element: <RideRequestDetail /> }], '/trips/rides/r1');
+    expect(await screen.findByText('Your flight was cancelled')).toBeInTheDocument();
   });
 
   it('explains when no match was found', async () => {

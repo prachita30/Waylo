@@ -35,6 +35,8 @@ export interface RideRequest {
   pickupZone: PickupZone | null;
   flightNumber: string | null;
   flightLinked: boolean;
+  flight: { status: string; scheduledArrivalAt: string; estimatedArrivalAt: string | null; delayMinutes: number; updatedAt: string | null } | null;
+  closedReason: string | null;
   flightBookingId: string | null;
   scheduledArrivalAt: string;
   expectedArrivalAt: string;
@@ -158,7 +160,8 @@ export interface RideGroup {
   lockedAt: string | null;
   route: { distanceMeters: number; durationSeconds: number };
   vehicleFare: VehicleFareBreakdown;
-  members: { isMe: boolean; firstName: string; avatarUrl: string | null; area: string; seats: number; dropoffOrder: number; estimatedDropoffAt: string }[];
+  members: { isMe: boolean; firstName: string; avatarUrl: string | null; area: string; seats: number; dropoffOrder: number; estimatedDropoffAt: string; readiness: Readiness }[];
+  map: { pickup: { lat: number; lng: number } | null; stops: { order: number; area: string; isMe: boolean; lat: number; lng: number }[] };
   me: {
     participantId: string;
     requestId: string;
@@ -172,6 +175,8 @@ export interface RideGroup {
     finalTotalMinor: number | null;
     soloTotalMinor: number;
     soloOk: boolean;
+    readiness: Readiness;
+    removedReason: string | null;
     cancellationFeeMinor: number | null;
     leaveFeeNowMinor: number | null;
   } | null;
@@ -198,3 +203,12 @@ export function useGroup(groupId: string | null | undefined) {
 }
 
 export const VEHICLE_LABEL = { sedan: 'Sedan', suv: 'SUV', van: 'Van' } as const;
+
+export type Readiness = 'not_landed' | 'landed' | 'at_baggage' | 'ready' | 'at_pickup';
+export const READINESS_LABEL: Record<Readiness, string> = {
+  not_landed: 'Not landed yet',
+  landed: 'Landed',
+  at_baggage: 'Waiting for bags',
+  ready: 'Have bags, heading out',
+  at_pickup: 'At the pickup point',
+};

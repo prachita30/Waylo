@@ -58,7 +58,16 @@ export function RequestView({ r, children }: { r: RideRequest; children?: ReactN
           We could not find a group within your limits. You were not charged. Try widening your waiting time or detour limit for your next trip.
         </Notice>
       )}
-      {r.status === 'cancelled' && <Notice tone="info" title="Request cancelled" className="mb-6">You were not charged.</Notice>}
+      {r.status === 'cancelled' && (
+        <Notice tone="info" title={r.closedReason === 'flight_cancelled' ? 'Your flight was cancelled' : 'Request cancelled'} className="mb-6">
+          {r.closedReason === 'flight_cancelled' ? 'We released your shared ride at no cost. Request a new ride once you have a new flight.' : 'You were not charged.'}
+        </Notice>
+      )}
+      {r.flight && r.flight.delayMinutes > 0 && r.status !== 'cancelled' && (
+        <Notice tone="warning" title={`Flight delayed by ${r.flight.delayMinutes} min`} className="mb-6">
+          Now expected at {formatTime(r.expectedArrivalAt)}. We moved your pickup to match{r.status === 'open' ? ' and are looking for riders on the new timing' : ''}.
+        </Notice>
+      )}
 
       {children}
 
@@ -69,7 +78,7 @@ export function RequestView({ r, children }: { r: RideRequest; children?: ReactN
             <Detail icon={<PlaneLanding className="size-4" aria-hidden />} label="Arrival">
               {r.flightNumber ? `${r.flightNumber} · ` : ''}
               {formatDateTime(r.scheduledArrivalAt)}
-              {r.flightLinked && <Badge tone="mint" className="ml-2">Flight tracked</Badge>}
+              {r.flightLinked && <Badge tone={r.flight && r.flight.delayMinutes > 0 ? 'amber' : 'mint'} className="ml-2">{flightLabel(r)}</Badge>}
             </Detail>
             <Detail icon={<MapPin className="size-4" aria-hidden />} label="Pickup">
               {r.pickupZone?.name}
@@ -132,6 +141,14 @@ export function RequestView({ r, children }: { r: RideRequest; children?: ReactN
       )}
     </div>
   );
+}
+
+function flightLabel(r: RideRequest) {
+  if (!r.flight) return 'Flight tracked';
+  if (r.flight.status === 'cancelled') return 'Cancelled';
+  if (r.flight.status === 'landed') return 'Landed';
+  if (r.flight.delayMinutes > 0) return `Delayed ${r.flight.delayMinutes} min`;
+  return 'On time';
 }
 
 function Detail({ icon, label, children }: { icon: ReactNode; label: string; children: ReactNode }) {

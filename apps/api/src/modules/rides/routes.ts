@@ -3,12 +3,15 @@ import { eq } from 'drizzle-orm';
 import { Router } from 'express';
 import { z } from 'zod';
 import type { AppContext } from '../../context';
-import { airports } from '../../db/schema';
-import { currentUser, requireAuth } from '../../http/auth';
+import { airports, flights } from '../../db/schema';
+import { currentUser, requireAuth, requireRole } from '../../http/auth';
 import { badRequest, notFound, unavailable } from '../../http/errors';
 import { limiter } from '../../http/rateLimit';
 import { body, params, query } from '../../http/validate';
-import { findMatches, joinGroup, leaveGroup, loadGroupForUser, startGroup, toGroupDto } from './groups';
+import { SandboxFlightStatusAdapter } from '../../adapters/flightStatus/sandbox';
+import { recordAudit } from '../../lib/audit';
+import { updateFlightStatus } from './flightAware';
+import { findMatches, joinGroup, leaveGroup, loadGroupForUser, READINESS, setReadiness, startGroup, toGroupDto } from './groups';
 import { cancelOpenRequest, createRideRequest, listRideRequests, loadRideRequest, lookupArrival, SERVICE_RADIUS_KM, serviceAreas, toRideRequestDto } from './requests';
 
 export function ridesRouter(ctx: AppContext): Router {
@@ -111,6 +114,31 @@ export function ridesRouter(ctx: AppContext): Router {
     const { groupId } = params(req, groupParam);
     const { cancelRequest } = body(req, z.object({ cancelRequest: z.boolean().default(false) }));
     res.json(await leaveGroup(ctx, currentUser(req), groupId, { cancelRequest }));
+  });
+
+  r.post('/rides/groups/:groupId/readiness', requireAuth, async (req, res) => {
+    const { groupId } = params(req, groupParam);
+    const { readiness } = body(req, z.object({ readiness: z.enum(READINESS) }));
+    await setReadiness(ctx, currentUser(req), groupId, readiness);
+    const g = await loadGroupForUser(ctx.db, currentUser(req), groupId);
+    res.json({ group: await toGroupDto(ctx, g, currentUser(req).id) });
+  });
+
+  /**
+   * Sandbox control (administrators only): simulate a delay or cancellation for a flight and apply
+   * it to linked rides immediately. Not available with a live flight-status provider.
+   */
+  r.post('/sandbox/flights/:flightId/status', requireRole('admin'), async (req, res) => {
+    const { flightId } = params(req, z.object({ flightId: z.string().uuid() }));
+    const input = body(req, z.object({ delayMinutes: z.number().int().min(0).max(720).default(0), cancelled: z.boolean().default(false) }));
+    if (!(ctx.adapters.flightStatus instanceof SandboxFlightStatusAdapter)) throw notFound('Sandbox control');
+    const [f] = await ctx.db.select().from(flights).where(eq(flights.id, flightId));
+    if (!f) throw notFound('Flight');
+    ctx.adapters.flightStatus.setOverride({ flightNumber: f.flightNumber, scheduledDepartAt: f.departAt }, input);
+    await updateFlightStatus(ctx, f);
+    await recordAudit(ctx.db, { actorUserId: currentUser(req).id, actorRole: 'admin', action: 'sandbox.flight_status_set', entityType: 'flight', entityId: f.id, metadata: input });
+    const [after] = await ctx.db.select().from(flights).where(eq(flights.id, flightId));
+    res.json({ flight: { id: after!.id, status: after!.status, estimatedArrivalAt: after!.estimatedArriveAt?.toISOString() ?? null } });
   });
 
   r.post('/rides/requests/:requestId/cancel', requireAuth, async (req, res) => {

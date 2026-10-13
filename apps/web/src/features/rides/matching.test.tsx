@@ -117,9 +117,16 @@ const group = (over: Partial<RideGroup> = {}): RideGroup => ({
   route: { distanceMeters: 28_000, durationSeconds: 4_200 },
   vehicleFare: fare,
   members: [
-    { isMe: false, firstName: 'Riya', avatarUrl: null, area: 'Churchgate', seats: 1, dropoffOrder: 1, estimatedDropoffAt: '2026-10-20T09:55:00Z' },
-    { isMe: true, firstName: 'Ananya', avatarUrl: null, area: 'Colaba', seats: 1, dropoffOrder: 2, estimatedDropoffAt: '2026-10-20T10:10:00Z' },
+    { isMe: false, firstName: 'Riya', avatarUrl: null, area: 'Churchgate', seats: 1, dropoffOrder: 1, estimatedDropoffAt: '2026-10-20T09:55:00Z', readiness: 'at_baggage' },
+    { isMe: true, firstName: 'Ananya', avatarUrl: null, area: 'Colaba', seats: 1, dropoffOrder: 2, estimatedDropoffAt: '2026-10-20T10:10:00Z', readiness: 'landed' },
   ],
+  map: {
+    pickup: { lat: 19.0988, lng: 72.8742 },
+    stops: [
+      { order: 1, area: 'Churchgate', isMe: false, lat: 18.93, lng: 72.83 },
+      { order: 2, area: 'Colaba', isMe: true, lat: 18.91, lng: 72.81 },
+    ],
+  },
   me: {
     participantId: 'p1',
     requestId: 'r1',
@@ -133,6 +140,8 @@ const group = (over: Partial<RideGroup> = {}): RideGroup => ({
     finalTotalMinor: 56_000,
     soloTotalMinor: 105_000,
     soloOk: false,
+    readiness: 'landed',
+    removedReason: null,
     cancellationFeeMinor: null,
     leaveFeeNowMinor: 14_000,
   },
@@ -153,6 +162,21 @@ describe('Group panel', () => {
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText(/cancellation fee of ₹140/)).toBeInTheDocument();
     expect(within(dialog).getByRole('button', { name: 'Leave and pay ₹140' })).toBeInTheDocument();
+  });
+
+  it('shows co-rider readiness, a map with a text alternative, and updates my readiness', async () => {
+    const { calls } = mockApi({
+      'GET /rides/groups/g1': () => ({ body: { group: group() } }),
+      'POST /rides/groups/g1/readiness': (b) => ({ body: { group: group({ me: { ...group().me!, readiness: (b as { readiness: 'at_pickup' }).readiness } }) } }),
+    });
+    renderRoutes([{ path: '/', element: <GroupPanel groupId="g1" requestId="r1" /> }]);
+    await screen.findByText('Riya');
+    expect(screen.getAllByText('Waiting for bags').some((e) => e.tagName === 'SPAN')).toBe(true);
+    const map = screen.getByRole('figure');
+    expect(within(map).getAllByText('You · Colaba').length).toBe(2); // drawing label + text alternative
+    expect(within(map).getAllByText('Pickup T2').length).toBeGreaterThan(0);
+    await userEvent.selectOptions(screen.getByLabelText('Your status after landing'), 'at_pickup');
+    await waitFor(() => expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ readiness: 'at_pickup' }));
   });
 
   it('builds the status timeline', () => {

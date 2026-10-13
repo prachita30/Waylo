@@ -98,7 +98,19 @@ Update this file at the end of every module. On resumption, continue from the fi
 - [x] Web: RideMatchCard (savings vs solo, seats/luggage meters, drop-off order chips, wait/detour/drop-off ETA, expandable rider + whole-vehicle price breakdown, lock time), MatchesPanel (join / start with solo opt-in, consent dialog with policy, conflict refresh), GroupPanel (members, pickup point instructions, capacity, current/final/agreed price, vehicle fare, leave with fee disclosure, status timeline), avatars made decorative next to visible names
 - [x] Tests: shared 40 (fares + 15 engine tests incl. ₹1,200 ÷ 4 = ₹300, last seat, luggage, detour/incompatible destinations, accessibility, operator availability, price cap, determinism), API 97 total (11 group lifecycle tests incl. concurrent last-seat race, price guard, leave/lock/fees, privacy), web 46 total; live smoke `node scripts/smoke-rides.mjs` passed (₹1,079 → ₹591 when a second rider joined)
 
-## Phase 8 — Maps and flight-aware pickup
+## Phase 8 — Maps and flight-aware pickup ✅ (2026-10-13)
+- [x] FlightStatusAdapter + SandboxFlightStatusAdapter: flights run on schedule unless an admin sets a delay/cancellation (no invented disruptions); scheduled → delayed/departed/landed derived from times; outage switch
+- [x] Migration 0006_flight_aware: rider readiness enum on participants (not_landed, landed, at_baggage, ready, at_pickup) + timestamp, removed_reason, ride_requests.closed_reason
+- [x] Background job (2 min): refresh status for flights linked to active ride requests in the next 72h; move expected arrival; re-plan groups: pickup moves when everyone can wait (forming groups re-priced within caps; locked groups keep final prices), otherwise the late rider is removed free of charge and their request reopens; a cancelled flight releases the rider and closes the request; provider outage leaves schedules unchanged
+- [x] Rider-reported readiness (POST /rides/groups/:id/readiness), visible to co-riders; WAYLO never claims baggage or exit times
+- [x] Sandbox control POST /sandbox/flights/:id/status (admins only, sandbox provider only, audited)
+- [x] Domain event bus (lib/events.ts) emitting flight/ride changes for Phase 11 notifications
+- [x] Shared geo helpers: distance to segment/path, isOffRoute (route deviation for Phase 9 driver tracking)
+- [x] Request DTO: live flight status (status, estimated arrival, delay); group DTO: per-member readiness, map points (pickup exact, drop-offs rounded to ~1 km area level)
+- [x] Web: RouteMap (schematic SVG, no third-party tiles or keys, animated route, pins, figcaption text alternative listing every point), readiness selector, co-rider readiness, flight badge (On time / Delayed N min / Cancelled / Landed), delay and flight-cancelled notices
+- [x] Tests: shared 44, API 105 (8 flight-aware tests: small delay moves pickup, long delay removes rider free, cancelled flight releases rider, locked prices unchanged, outage tolerated, readiness, area-level map privacy, admin-only control), web 48; live check of the group view against the dev API
+- [~] Live driver tracking and driver assignment updates are implemented with the operator portal in Phase 9 (they need drivers)
+
 ## Phase 9 — Driver and fleet-operator portal
 ## Phase 10 — Payments, refunds and settlements
 ## Phase 11 — Notifications and support
@@ -108,4 +120,4 @@ Update this file at the end of every module. On resumption, continue from the fi
 ## Phase 15 — Integration testing, security review and deployment readiness
 
 ## Next action
-Phase 8: maps and flight-aware pickup (flight status adapter, arrival updates moving pickup times, baggage-status input, route map component with text alternative, driver location display hooks).
+Phase 9: driver and fleet-operator portal (operators, drivers, vehicles, documents, approval, availability → matching supply, assignment, trip status updates, live location + deviation, no-shows, incidents, earnings).

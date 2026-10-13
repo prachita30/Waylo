@@ -246,7 +246,7 @@ describe('privacy and access', () => {
     const text = JSON.stringify(res.body);
     expect(text).not.toMatch(/@example\.com/);
     expect(text).not.toMatch(/Number\d/); // last names
-    expect(text).not.toMatch(/18\.93/); // exact co-rider coordinates
+    expect(text).not.toMatch(/18\.932/); // exact co-rider coordinates (area-level 18.93 is allowed)
     expect(res.body.group.members.map((m: { area: string }) => m.area).sort()).toEqual(['Churchgate', 'Colaba']);
     expect((await outsider.get(`/api/v1/rides/groups/${g.id}`)).status).toBe(404);
     expect((await outsider.post(`/api/v1/rides/groups/${g.id}/leave`).send({})).status).toBe(404);
