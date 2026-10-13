@@ -19,6 +19,7 @@ export const router = createBrowserRouter([
       { path: 'support', lazy: lazyPage(() => import('@/pages/info/SupportInfo')) },
       { path: 'flights', lazy: lazyPage(() => import('@/pages/flights/FlightResults')) },
       { path: 'flights/offers/:offerId', lazy: lazyPage(() => import('@/pages/flights/OfferDetail')) },
+      { path: 'rides', lazy: lazyPage(() => import('@/pages/rides/Rides')) },
       {
         element: <RequireAuth />,
         children: [
@@ -27,6 +28,8 @@ export const router = createBrowserRouter([
           { path: 'pay/sandbox/:intentId', lazy: lazyPage(() => import('@/pages/pay/SandboxCheckout')) },
           { path: 'trips', lazy: lazyPage(() => import('@/pages/trips/Trips')) },
           { path: 'trips/flights/:bookingId', lazy: lazyPage(() => import('@/pages/trips/FlightBookingDetail')) },
+          { path: 'rides/new', lazy: lazyPage(() => import('@/pages/rides/NewRide')) },
+          { path: 'trips/rides/:requestId', lazy: lazyPage(() => import('@/pages/trips/RideRequestDetail')) },
         ],
       },
       ...(import.meta.env.DEV ? [{ path: 'dev/design', lazy: lazyPage(() => import('@/pages/DesignSystem')) }] : []),

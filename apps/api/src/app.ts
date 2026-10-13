@@ -13,6 +13,7 @@ import { bookingsRouter } from './modules/bookings/routes';
 import { flightsRouter } from './modules/flights/routes';
 import { healthRouter, metaRouter } from './modules/meta/routes';
 import { paymentsRouter, paymentWebhookRouter } from './modules/payments/routes';
+import { ridesRouter } from './modules/rides/routes';
 import { usersRouter } from './modules/users/routes';
 
 /** Paths under /api/v1 that skip the CSRF client-header check (server-to-server, signature-verified). */
@@ -56,6 +57,7 @@ export function createApp(ctx: AppContext) {
   v1.use(flightsRouter(ctx));
   v1.use(bookingsRouter(ctx));
   v1.use(paymentsRouter(ctx));
+  v1.use(ridesRouter(ctx));
   app.use('/api/v1', v1);
 
   app.use(notFoundHandler);

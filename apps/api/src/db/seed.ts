@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import type { Db } from './client';
 import { seedDemoAccounts } from './demo-accounts';
-import { airports, appConfig, cities } from './schema';
+import { airports, appConfig, cities, pickupZones } from './schema';
 
 /** Real Indian cities and airports (public reference data). Coordinates are approximate. */
 export const SEED_CITIES = [
@@ -36,7 +36,38 @@ export const SEED_AIRPORTS = [
   { code: 'VNS', name: 'Lal Bahadur Shastri International Airport', cityId: 'varanasi', lat: 25.4524, lng: 82.8593 },
 ].map((a) => ({ ...a, timezone: TZ }));
 
-export const DEFAULT_CONFIG: { key: string; value: unknown; description: string }[] = [
+/**
+ * Pickup zones for airports where shared rides operate. Coordinates and wording are
+ * approximate and must be verified on site with the airport operator before launch.
+ */
+export const SEED_PICKUP_ZONES = [
+  {
+    airportCode: 'BOM',
+    terminal: 'T2',
+    name: 'T2 Arrivals · App-cab pickup',
+    instructions: 'After exiting arrivals, follow signs for “App-based cabs” and wait at the shared-ride bay. Your driver will message you on arrival.',
+    lat: 19.0988,
+    lng: 72.8742,
+  },
+  {
+    airportCode: 'BOM',
+    terminal: 'T1',
+    name: 'T1 Arrivals · Pickup lane',
+    instructions: 'Exit arrivals at Terminal 1 and cross to the pickup lane opposite gate 8. Wait in the marked shared-ride area.',
+    lat: 19.0919,
+    lng: 72.8534,
+  },
+  {
+    airportCode: 'GOI',
+    terminal: 'Main',
+    name: 'Arrivals · Cab pickup',
+    instructions: 'Exit arrivals and walk to the cab pickup area on the left. Look for the shared-ride sign.',
+    lat: 15.3812,
+    lng: 73.8341,
+  },
+];
+
+export const DEFAULT_CONFIG:{ key: string; value: unknown; description: string }[] = [
   { key: 'platform.currency', value: 'INR', description: 'Settlement currency for the home market.' },
 ];
 
@@ -51,6 +82,7 @@ export async function seedReferenceData(db: Db): Promise<void> {
     .values(SEED_AIRPORTS)
     .onConflictDoUpdate({ target: airports.code, set: { name: sql`excluded.name`, lat: sql`excluded.lat`, lng: sql`excluded.lng` } });
   await db.insert(appConfig).values(DEFAULT_CONFIG).onConflictDoNothing();
+  await db.insert(pickupZones).values(SEED_PICKUP_ZONES).onConflictDoNothing();
 }
 
 export interface SeedOptions {

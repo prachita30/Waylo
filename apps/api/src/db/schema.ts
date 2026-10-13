@@ -388,3 +388,78 @@ export const paymentEvents = pgTable(
   },
   (t) => [uniqueIndex('payment_events_uq').on(t.provider, t.providerEventId)],
 );
+
+// ---------------------------------------------------------------- shared rides: requests
+
+/** Designated pickup points at an airport terminal (where riders meet their driver). */
+export const pickupZones = pgTable(
+  'pickup_zones',
+  {
+    id: pk(),
+    airportCode: varchar('airport_code', { length: 3 })
+      .notNull()
+      .references(() => airports.code),
+    terminal: varchar('terminal', { length: 8 }).notNull(),
+    name: text('name').notNull(),
+    instructions: text('instructions').notNull(),
+    lat: doublePrecision('lat').notNull(),
+    lng: doublePrecision('lng').notNull(),
+    active: boolean('active').notNull().default(true),
+    createdAt: createdAt(),
+  },
+  (t) => [index('pickup_zones_airport_idx').on(t.airportCode), uniqueIndex('pickup_zones_name_uq').on(t.airportCode, t.name)],
+);
+
+export const rideRequestStatusEnum = pgEnum('ride_request_status', ['open', 'matched', 'cancelled', 'expired', 'no_match', 'completed']);
+export const vehiclePreferenceEnum = pgEnum('vehicle_preference', ['any', 'sedan', 'suv', 'van']);
+
+export const rideRequests = pgTable(
+  'ride_requests',
+  {
+    id: pk(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    airportCode: varchar('airport_code', { length: 3 })
+      .notNull()
+      .references(() => airports.code),
+    pickupZoneId: uuid('pickup_zone_id')
+      .notNull()
+      .references(() => pickupZones.id),
+    flightNumber: varchar('flight_number', { length: 8 }),
+    flightId: uuid('flight_id').references(() => flights.id),
+    flightBookingId: uuid('flight_booking_id').references(() => flightBookings.id),
+    /** Scheduled (or customer-stated) arrival. Flight status updates move expected_arrival_at (Phase 8). */
+    scheduledArrivalAt: timestamp('scheduled_arrival_at', { withTimezone: true }).notNull(),
+    expectedArrivalAt: timestamp('expected_arrival_at', { withTimezone: true }).notNull(),
+    destinationPlaceId: varchar('destination_place_id', { length: 128 }).notNull(),
+    destinationLabel: varchar('destination_label', { length: 160 }).notNull(),
+    destinationArea: varchar('destination_area', { length: 80 }).notNull(),
+    destinationLat: doublePrecision('destination_lat').notNull(),
+    destinationLng: doublePrecision('destination_lng').notNull(),
+    directDistanceMeters: integer('direct_distance_meters').notNull(),
+    directDurationSeconds: integer('direct_duration_seconds').notNull(),
+    passengers: integer('passengers').notNull(),
+    luggageCabin: integer('luggage_cabin').notNull().default(0),
+    luggageMedium: integer('luggage_medium').notNull().default(0),
+    luggageLarge: integer('luggage_large').notNull().default(0),
+    vehiclePreference: vehiclePreferenceEnum('vehicle_preference').notNull().default('any'),
+    maxWaitMinutes: integer('max_wait_minutes').notNull(),
+    maxDetourMinutes: integer('max_detour_minutes').notNull(),
+    wheelchair: boolean('wheelchair').notNull().default(false),
+    notes: varchar('notes', { length: 280 }),
+    status: rideRequestStatusEnum('status').notNull().default('open'),
+    cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    index('ride_requests_pool_idx').on(t.airportCode, t.status, t.expectedArrivalAt),
+    index('ride_requests_user_idx').on(t.userId, t.createdAt),
+    // One active request per traveller per arrival.
+    uniqueIndex('ride_requests_active_uq').on(t.userId, t.airportCode, t.scheduledArrivalAt).where(sql`${t.status} in ('open', 'matched')`),
+    check('ride_requests_pax_ck', sql`${t.passengers} between 1 and 6`),
+    check('ride_requests_limits_ck', sql`${t.maxWaitMinutes} between 10 and 60 and ${t.maxDetourMinutes} between 5 and 30`),
+    check('ride_requests_luggage_ck', sql`${t.luggageCabin} >= 0 and ${t.luggageMedium} >= 0 and ${t.luggageLarge} >= 0`),
+  ],
+);

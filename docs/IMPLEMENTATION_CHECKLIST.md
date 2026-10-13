@@ -75,7 +75,17 @@ Update this file at the end of every module. On resumption, continue from the fi
 - [x] Tests: API 73 total (23 booking/payment), web 36 total; live smoke test `node scripts/smoke.mjs` passed against the dev server (search → lock → book → pay → confirmed with PNR)
 - [~] Playwright spec e2e/booking.spec.ts written; not executable in this environment (see Phase 2)
 
-## Phase 6 — Shared airport-ride requests
+## Phase 6 — Shared airport-ride requests ✅ (2026-10-13)
+**Order adjustment:** the MapsAdapter (geocoding + route estimates) is introduced here because ride requests need geocoded destinations and direct-route baselines; map display and live driver tracking remain in Phase 8.
+- [x] Shared rules (packages/shared/src/rides.ts): luggage capacity units (cabin 1 / medium 2 / large 3), vehicle classes (sedan 4 seats/6 units, SUV 6/10, van 8/14, accessible), acceptableVehicles, partyFits, rideRequestSchema (flight number normalisation, excess-luggage and wheelchair/vehicle rules)
+- [x] MapsAdapter interface + SandboxMapsAdapter: gazetteer of Mumbai/Thane/Navi Mumbai/Goa localities and landmarks, radius-filtered search, time-of-day route/ETA estimates (road factor 1.4, peak/off-peak speeds), outage switch
+- [x] Migration 0004_ride_requests: pickup_zones (seeded BOM T1/T2, GOI; flagged for on-site verification), ride_requests (flight link, booking link, scheduled + expected arrival, destination label/area/coords, direct route baseline, party, luggage by size, vehicle preference, wait/detour limits, wheelchair, notes, status), partial unique index (one active request per arrival), check constraints
+- [x] Endpoints: GET /rides/service-areas, GET /places/search (server-side provider), GET /rides/flight-lookup, POST/GET /rides/requests, GET /rides/requests/:id, POST /rides/requests/:id/cancel
+- [x] Rules: pickup zone must belong to the airport, arrival within −15 min…60 days, destination within 60 km, flight-linked requests use the airline schedule, linked WAYLO bookings must be confirmed and own; routing outage fails safely (503); duplicate requests rejected (incl. race via unique index)
+- [x] Background job: open requests past arrival + max wait → no_match; account deletion blocked while a request is active
+- [x] Web: /rides hub (explainer + my requests), /rides/new form (airport, terminal pickup with instructions, optional flight number, local arrival time, accessible destination combobox, travellers and luggage steppers, vehicle preference, wait/detour sliders, accessibility, notes, live capacity check and matching-window summary), request detail with cancel, rides in My Trips, "Share a ride" from confirmed flight bookings (prefilled)
+- [x] Tests: shared 20, API 86 total (13 ride-request tests), web 41 total (5 ride tests); visual check of /rides/new against the live dev API
+
 ## Phase 7 — Ride matching and fare splitting
 ## Phase 8 — Maps and flight-aware pickup
 ## Phase 9 — Driver and fleet-operator portal
@@ -87,4 +97,4 @@ Update this file at the end of every module. On resumption, continue from the fi
 ## Phase 15 — Integration testing, security review and deployment readiness
 
 ## Next action
-Phase 6: shared airport-ride requests (ride request model, pickup zones, destination geocoding via maps adapter, request form, my requests).
+Phase 7: ride matching and fare splitting (deterministic engine with hard constraints + weighted score, ride groups, joining/confirming with capacity locks, fare model, cancellation).

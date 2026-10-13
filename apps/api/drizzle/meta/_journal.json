@@ -29,6 +29,13 @@
       "when": 1791882828829,
       "tag": "0003_bookings",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791883841175,
+      "tag": "0004_ride_requests",
+      "breakpoints": true
     }
   ]
 }

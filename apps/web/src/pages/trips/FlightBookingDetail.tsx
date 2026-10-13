@@ -1,6 +1,6 @@
 import { formatMoney } from '@waylo/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Copy, LifeBuoy, Ticket } from 'lucide-react';
+import { ArrowLeft, CarFront, Copy, LifeBuoy, Ticket } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { RouteLine } from '@/components/brand/Route';
@@ -191,6 +191,13 @@ export default function FlightBookingDetail() {
                 </Button>
               ) : (
                 b.status === 'confirmed' && <p className="text-xs text-ink-3">{cancellation.reason}</p>
+              )}
+              {b.status === 'confirmed' && (
+                <Button asChild variant="mint" block>
+                  <Link to={`/rides/new?booking=${b.id}`}>
+                    <CarFront className="size-4" aria-hidden /> Share a ride from {it.destinationAirport?.city ?? it.destination} airport
+                  </Link>
+                </Button>
               )}
               <Button asChild variant="ghost" block size="sm">
                 <Link to={`/support/tickets?booking=${b.reference}`}>

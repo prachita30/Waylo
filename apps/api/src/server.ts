@@ -2,6 +2,7 @@ import { createApp } from './app';
 import { bootstrap } from './bootstrap';
 import { startJobs } from './lib/jobs';
 import { expireUnpaidBookings, pollPendingTicketing } from './modules/bookings/service';
+import { expireUnmatchedRequests } from './modules/rides/requests';
 
 const ctx = await bootstrap();
 const app = createApp(ctx);
@@ -15,6 +16,7 @@ const server = app.listen(ctx.config.PORT, () => {
 const stopJobs = startJobs(ctx, [
   { name: 'expire-unpaid-bookings', everyMs: 30_000, run: expireUnpaidBookings },
   { name: 'poll-ticketing', everyMs: 15_000, run: pollPendingTicketing },
+  { name: 'expire-unmatched-ride-requests', everyMs: 60_000, run: expireUnmatchedRequests },
 ]);
 
 async function shutdown(signal: string) {
