@@ -59,7 +59,22 @@ Update this file at the end of every module. On resumption, continue from the fi
 - [x] Web: results page (compact search, flexible-date strip, filters sidebar / mobile sheet, budget slider, departure chips, sort, empty/error/degraded states, pagination), FlightCard, AirlineMark, OfferExpiry countdown, PriceBreakdown, offer detail page (itinerary, baggage, fees, rules, saving source, sandbox notice)
 - [x] Tests: shared 13, API 50 (17 flight tests), web 30 (8 flight page tests); verified live in browser against the sandbox adapter
 
-## Phase 5 — Flight booking workflow
+## Phase 5 — Flight booking workflow ✅ (2026-10-13)
+**Order adjustment:** the payment-intent and signed-webhook part of the Payments module is built here, because booking cannot complete without it. Refund execution, ride payments and settlements remain in Phase 10.
+- [x] Migration 0003_bookings: price_locks (total = fare × adults check), flight_bookings (status enum, unique reference, unique price_lock_id, unique (user, idempotency_key), itinerary snapshot, ticketing retry fields, payment deadline, seats_held, refund_due), booking_passengers, payments (unique provider intent, refunded ≤ amount check), payment_events (unique provider event id)
+- [x] AirlineAdapter extended: validateOffer, createOrder (idempotent hold), issueTicket, getOrder, cancelOrder; sandbox scenarios (price change, unavailable, hold failure, instant/delayed/failed ticketing; demo surnames TICKETDELAY / TICKETFAIL), unknown orders never treated as ticketed
+- [x] PaymentAdapter + SandboxPaymentAdapter: intents, HMAC-SHA256 signed webhooks (timestamp tolerance), idempotent replay, refunds API ready for Phase 10; production requires PAYMENT_WEBHOOK_SECRET and refuses sandbox payments
+- [x] Price lock: re-validates with the airline, ≤10 min, reports price changes, expired / sold out / provider outage handled
+- [x] Booking: Idempotency-Key required, replay returns same booking, one booking per lock, consent check on accepted total (charge always from server lock), partner inventory reserved under row lock (last-seat race tested), airline hold after commit with compensation on failure
+- [x] Payment outcomes applied only from verified webhooks; amount mismatch ignored; failed payment retryable within window; late payment after expiry flagged for refund
+- [x] Ticketing: confirmed only on airline ticket; delayed issuance polled with backoff (background job); failure → ticketing_failed + full refund due + seats released
+- [x] Background jobs: expire unpaid bookings (release seats, cancel airline hold, cancel payment), poll pending ticketing
+- [x] Cancellation: fare-rule refund quote (refundable minus fee, else taxes), ≥4h before departure, airline-confirmed amount capped at paid total, audit event; account deletion blocked by processing or upcoming bookings
+- [x] Endpoints: POST /flights/offers/:id/validate, POST/GET /flights/bookings, GET /flights/bookings/:id, POST /flights/bookings/:id/pay, POST /flights/bookings/:id/cancel, POST /payments/webhooks/:provider (raw body, signature), GET/POST /payments/sandbox/intents/:id[/complete]
+- [x] Web: Book page (live price-lock countdown, explicit acceptance of price changes, passenger forms from shared schema, profile prefill, fare rules consent, idempotency key persisted per lock), sandbox checkout (labelled, no card fields), booking detail (live polling, timeline, PNR, tickets, retry payment, cancel with quote), My Trips (upcoming / past)
+- [x] Tests: API 73 total (23 booking/payment), web 36 total; live smoke test `node scripts/smoke.mjs` passed against the dev server (search → lock → book → pay → confirmed with PNR)
+- [~] Playwright spec e2e/booking.spec.ts written; not executable in this environment (see Phase 2)
+
 ## Phase 6 — Shared airport-ride requests
 ## Phase 7 — Ride matching and fare splitting
 ## Phase 8 — Maps and flight-aware pickup
@@ -72,4 +87,4 @@ Update this file at the end of every module. On resumption, continue from the fi
 ## Phase 15 — Integration testing, security review and deployment readiness
 
 ## Next action
-Phase 5: flight booking workflow (price lock/validate, passenger details, idempotent booking, payment handoff, ticketing states, cancellation).
+Phase 6: shared airport-ride requests (ride request model, pickup zones, destination geocoding via maps adapter, request form, my requests).

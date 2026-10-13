@@ -21,7 +21,13 @@ export const router = createBrowserRouter([
       { path: 'flights/offers/:offerId', lazy: lazyPage(() => import('@/pages/flights/OfferDetail')) },
       {
         element: <RequireAuth />,
-        children: [{ path: 'account', lazy: lazyPage(() => import('@/pages/account/Account')) }],
+        children: [
+          { path: 'account', lazy: lazyPage(() => import('@/pages/account/Account')) },
+          { path: 'flights/offers/:offerId/book', lazy: lazyPage(() => import('@/pages/flights/Book')) },
+          { path: 'pay/sandbox/:intentId', lazy: lazyPage(() => import('@/pages/pay/SandboxCheckout')) },
+          { path: 'trips', lazy: lazyPage(() => import('@/pages/trips/Trips')) },
+          { path: 'trips/flights/:bookingId', lazy: lazyPage(() => import('@/pages/trips/FlightBookingDetail')) },
+        ],
       },
       ...(import.meta.env.DEV ? [{ path: 'dev/design', lazy: lazyPage(() => import('@/pages/DesignSystem')) }] : []),
       { path: '*', lazy: lazyPage(() => import('@/pages/NotFound')) },

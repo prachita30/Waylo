@@ -42,6 +42,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   if (isProduction && !c.DATABASE_URL) {
     throw new Error('DATABASE_URL is required when NODE_ENV=production (embedded PGlite is for development only).');
   }
+  if (isProduction && !c.PAYMENT_WEBHOOK_SECRET) {
+    throw new Error('PAYMENT_WEBHOOK_SECRET is required when NODE_ENV=production.');
+  }
   return {
     ...c,
     webOrigins: c.WEB_ORIGIN.split(',').map((s) => s.trim()).filter(Boolean),

@@ -248,3 +248,143 @@ export const flightOffers = pgTable(
     check('offers_sold_ck', sql`${t.seatsSold} >= 0 AND (${t.inventoryCap} IS NULL OR ${t.seatsSold} <= ${t.inventoryCap})`),
   ],
 );
+
+// ---------------------------------------------------------------- flight bookings & payments
+
+export const bookingStatusEnum = pgEnum('flight_booking_status', [
+  'pending_payment',
+  'payment_failed',
+  'ticketing',
+  'confirmed',
+  'ticketing_failed',
+  'cancelled',
+  'expired',
+]);
+
+/** A short-lived, server-held confirmation of price and availability. Clients reference it by id only. */
+export const priceLocks = pgTable(
+  'price_locks',
+  {
+    id: pk(),
+    offerId: uuid('offer_id')
+      .notNull()
+      .references(() => flightOffers.id),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    adults: integer('adults').notNull(),
+    farePerAdultMinor: integer('fare_per_adult_minor').notNull(),
+    taxesPerAdultMinor: integer('taxes_per_adult_minor').notNull(),
+    totalMinor: integer('total_minor').notNull(),
+    currency: char('currency', { length: 3 }).notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [index('price_locks_user_idx').on(t.userId), check('price_locks_total_ck', sql`${t.totalMinor} = ${t.farePerAdultMinor} * ${t.adults}`)],
+);
+
+export const flightBookings = pgTable(
+  'flight_bookings',
+  {
+    id: pk(),
+    reference: varchar('reference', { length: 8 }).notNull(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    offerId: uuid('offer_id')
+      .notNull()
+      .references(() => flightOffers.id),
+    priceLockId: uuid('price_lock_id')
+      .notNull()
+      .references(() => priceLocks.id),
+    idempotencyKey: varchar('idempotency_key', { length: 64 }).notNull(),
+    status: bookingStatusEnum('status').notNull().default('pending_payment'),
+    adults: integer('adults').notNull(),
+    totalMinor: integer('total_minor').notNull(),
+    currency: char('currency', { length: 3 }).notNull(),
+    contactEmail: varchar('contact_email', { length: 254 }).notNull(),
+    contactPhone: varchar('contact_phone', { length: 16 }),
+    /** Itinerary, fare rules and baggage exactly as sold, for the customer's record. */
+    snapshot: jsonb('snapshot').$type<Record<string, unknown>>().notNull(),
+    airlineOrderRef: varchar('airline_order_ref', { length: 64 }),
+    pnr: varchar('pnr', { length: 12 }),
+    ticketedAt: timestamp('ticketed_at', { withTimezone: true }),
+    ticketingAttempts: integer('ticketing_attempts').notNull().default(0),
+    nextTicketingCheckAt: timestamp('next_ticketing_check_at', { withTimezone: true }),
+    failureReason: text('failure_reason'),
+    /** Seats held against the offer's partner inventory cap; released on expiry or failure. */
+    seatsHeld: boolean('seats_held').notNull().default(true),
+    paymentDueAt: timestamp('payment_due_at', { withTimezone: true }).notNull(),
+    cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
+    cancelledBy: varchar('cancelled_by', { length: 16 }),
+    refundDueMinor: integer('refund_due_minor'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex('bookings_reference_uq').on(t.reference),
+    uniqueIndex('bookings_lock_uq').on(t.priceLockId),
+    uniqueIndex('bookings_idempotency_uq').on(t.userId, t.idempotencyKey),
+    index('bookings_user_idx').on(t.userId, t.createdAt),
+    index('bookings_status_idx').on(t.status),
+  ],
+);
+
+export const bookingPassengers = pgTable(
+  'booking_passengers',
+  {
+    id: pk(),
+    bookingId: uuid('booking_id')
+      .notNull()
+      .references(() => flightBookings.id, { onDelete: 'cascade' }),
+    position: integer('position').notNull(),
+    firstName: varchar('first_name', { length: 60 }).notNull(),
+    lastName: varchar('last_name', { length: 60 }).notNull(),
+    ticketNumber: varchar('ticket_number', { length: 20 }),
+  },
+  (t) => [uniqueIndex('passengers_position_uq').on(t.bookingId, t.position)],
+);
+
+export const paymentStatusEnum = pgEnum('payment_status', ['requires_payment', 'succeeded', 'failed', 'cancelled', 'refunded', 'partially_refunded']);
+
+export const payments = pgTable(
+  'payments',
+  {
+    id: pk(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    purpose: varchar('purpose', { length: 24 }).notNull(), // 'flight_booking' | 'ride'
+    referenceId: uuid('reference_id').notNull(),
+    amountMinor: integer('amount_minor').notNull(),
+    refundedMinor: integer('refunded_minor').notNull().default(0),
+    currency: char('currency', { length: 3 }).notNull(),
+    provider: varchar('provider', { length: 32 }).notNull(),
+    providerIntentId: varchar('provider_intent_id', { length: 128 }).notNull(),
+    status: paymentStatusEnum('status').notNull().default('requires_payment'),
+    failureReason: text('failure_reason'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex('payments_provider_intent_uq').on(t.provider, t.providerIntentId),
+    index('payments_reference_idx').on(t.purpose, t.referenceId),
+    check('payments_amount_ck', sql`${t.amountMinor} > 0 AND ${t.refundedMinor} >= 0 AND ${t.refundedMinor} <= ${t.amountMinor}`),
+  ],
+);
+
+/** Every provider webhook event, stored once. The unique event id makes processing idempotent. */
+export const paymentEvents = pgTable(
+  'payment_events',
+  {
+    id: pk(),
+    provider: varchar('provider', { length: 32 }).notNull(),
+    providerEventId: varchar('provider_event_id', { length: 128 }).notNull(),
+    type: varchar('type', { length: 64 }).notNull(),
+    payload: jsonb('payload').notNull(),
+    receivedAt: timestamp('received_at', { withTimezone: true }).notNull().defaultNow(),
+    processedAt: timestamp('processed_at', { withTimezone: true }),
+  },
+  (t) => [uniqueIndex('payment_events_uq').on(t.provider, t.providerEventId)],
+);

@@ -1,4 +1,5 @@
 import type { AirlineAdapter } from './adapters/airline/types';
+import type { PaymentAdapter } from './adapters/payments/types';
 import type { Config } from './config';
 import type { Db, DbHandle } from './db/client';
 import type { Logger } from './lib/logger';
@@ -20,6 +21,7 @@ export interface Adapter {
 /** Registered integrations. Each module adds its adapter here. */
 export interface Adapters {
   airline: AirlineAdapter;
+  payments: PaymentAdapter;
 }
 
 export interface AppContext {

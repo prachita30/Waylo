@@ -60,7 +60,41 @@ export interface AirlineAdapter extends Adapter {
   /** Airlines this integration can sell. */
   airlines(): AirlineInfo[];
   searchOffers(query: AirlineSearchQuery): Promise<AirlineOffer[]>;
+  /** Re-confirms price and availability immediately before booking. */
+  validateOffer(input: ValidateInput): Promise<ValidateResult>;
+  /** Creates an unpaid order that holds seats. Must be idempotent on `idempotencyKey`. */
+  createOrder(input: CreateOrderInput): Promise<{ orderRef: string; holdUntil: Date }>;
+  /** Requests ticket issuance for a paid order. May complete later ("pending"). */
+  issueTicket(orderRef: string): Promise<TicketingResult>;
+  /** Current ticketing state of an order (used to poll delayed issuance). */
+  getOrder(orderRef: string): Promise<TicketingResult>;
+  /** Cancels an order (held or ticketed). Returns what the airline will refund. */
+  cancelOrder(orderRef: string): Promise<{ refundableMinor: number }>;
 }
+
+export interface ValidateInput {
+  externalRef: string;
+  adults: number;
+  /** What WAYLO last saw for this offer; adapters that cannot look up by reference fall back to it. */
+  known: { fareMinor: number; taxesMinor: number; departAt: Date; validUntil: Date; seatsAvailable: number | null };
+}
+
+export type ValidateResult =
+  | { available: true; fareMinor: number; taxesMinor: number; seatsAvailable: number | null; validUntil: Date }
+  | { available: false; reason: 'sold_out' | 'expired' | 'withdrawn' | 'insufficient_seats' };
+
+export interface CreateOrderInput {
+  externalRef: string;
+  passengers: { firstName: string; lastName: string }[];
+  contact: { email: string; phone?: string | null };
+  expectedTotalMinor: number;
+  idempotencyKey: string;
+}
+
+export type TicketingResult =
+  | { status: 'ticketed'; pnr: string; ticketNumbers: string[] }
+  | { status: 'pending' }
+  | { status: 'failed'; reason: string };
 
 export class AirlineUnavailableError extends Error {
   constructor(message = 'Airline system unavailable') {

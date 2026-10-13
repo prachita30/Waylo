@@ -22,6 +22,13 @@
       "when": 1791882246304,
       "tag": "0002_flights",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791882828829,
+      "tag": "0003_bookings",
+      "breakpoints": true
     }
   ]
 }

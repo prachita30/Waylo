@@ -9,8 +9,10 @@ import { CLIENT_HEADER, csrfGuard } from './http/csrf';
 import { errorHandler, notFoundHandler } from './http/errors';
 import { limiter } from './http/rateLimit';
 import { authRouter } from './modules/auth/routes';
+import { bookingsRouter } from './modules/bookings/routes';
 import { flightsRouter } from './modules/flights/routes';
 import { healthRouter, metaRouter } from './modules/meta/routes';
+import { paymentsRouter, paymentWebhookRouter } from './modules/payments/routes';
 import { usersRouter } from './modules/users/routes';
 
 /** Paths under /api/v1 that skip the CSRF client-header check (server-to-server, signature-verified). */
@@ -37,6 +39,8 @@ export function createApp(ctx: AppContext) {
       methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'],
     }),
   );
+  // Webhooks need the raw body for signature verification, so they are mounted before JSON parsing.
+  app.use('/api/v1/payments/webhooks/:provider', paymentWebhookRouter(ctx));
   app.use(express.json({ limit: '200kb' }));
   app.use(cookieParser());
 
@@ -50,6 +54,8 @@ export function createApp(ctx: AppContext) {
   v1.use(authRouter(ctx));
   v1.use(usersRouter(ctx));
   v1.use(flightsRouter(ctx));
+  v1.use(bookingsRouter(ctx));
+  v1.use(paymentsRouter(ctx));
   app.use('/api/v1', v1);
 
   app.use(notFoundHandler);
