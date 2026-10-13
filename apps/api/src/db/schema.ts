@@ -846,3 +846,102 @@ export const settlements = pgTable(
   },
   (t) => [index('settlements_operator_idx').on(t.operatorId, t.periodEnd), check('settlements_amounts_ck', sql`${t.payoutMinor} = ${t.grossFareMinor} - ${t.commissionMinor}`)],
 );
+
+// ---------------------------------------------------------------- notifications
+
+export const notifications = pgTable(
+  'notifications',
+  {
+    id: pk(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    kind: varchar('kind', { length: 48 }).notNull(),
+    title: varchar('title', { length: 140 }).notNull(),
+    body: text('body').notNull(),
+    /** In-app path to open, e.g. /trips/flights/<id>. */
+    link: varchar('link', { length: 200 }),
+    readAt: timestamp('read_at', { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [index('notifications_user_idx').on(t.userId, t.createdAt)],
+);
+
+export const deliveryChannelEnum = pgEnum('delivery_channel', ['email', 'sms', 'push']);
+export const deliveryStatusEnum = pgEnum('delivery_status', ['queued', 'sent', 'failed', 'skipped']);
+
+/** Outbox of outbound messages for each notification. */
+export const notificationDeliveries = pgTable(
+  'notification_deliveries',
+  {
+    id: pk(),
+    notificationId: uuid('notification_id')
+      .notNull()
+      .references(() => notifications.id, { onDelete: 'cascade' }),
+    channel: deliveryChannelEnum('channel').notNull(),
+    status: deliveryStatusEnum('status').notNull().default('queued'),
+    attempts: integer('attempts').notNull().default(0),
+    nextAttemptAt: timestamp('next_attempt_at', { withTimezone: true }).notNull().defaultNow(),
+    providerMessageId: varchar('provider_message_id', { length: 128 }),
+    error: text('error'),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [index('deliveries_queue_idx').on(t.status, t.nextAttemptAt)],
+);
+
+// ---------------------------------------------------------------- support
+
+export const ticketCategoryEnum = pgEnum('ticket_category', ['booking', 'ride', 'payment_refund', 'account', 'safety', 'other']);
+export const ticketStatusEnum = pgEnum('ticket_status', ['open', 'in_review', 'awaiting_customer', 'resolved', 'closed']);
+export const ticketPriorityEnum = pgEnum('ticket_priority', ['normal', 'high', 'urgent']);
+
+export const supportTickets = pgTable(
+  'support_tickets',
+  {
+    id: pk(),
+    reference: varchar('reference', { length: 10 }).notNull(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    category: ticketCategoryEnum('category').notNull(),
+    subject: varchar('subject', { length: 140 }).notNull(),
+    status: ticketStatusEnum('status').notNull().default('open'),
+    priority: ticketPriorityEnum('priority').notNull().default('normal'),
+    /** Booking reference (WY…) or ride group id the customer is asking about. */
+    relatedBookingRef: varchar('related_booking_ref', { length: 12 }),
+    relatedGroupId: uuid('related_group_id'),
+    assignedTo: uuid('assigned_to').references(() => users.id),
+    incidentId: uuid('incident_id'),
+    lastActivityAt: timestamp('last_activity_at', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex('tickets_reference_uq').on(t.reference),
+    index('tickets_user_idx').on(t.userId, t.createdAt),
+    index('tickets_queue_idx').on(t.status, t.priority, t.lastActivityAt),
+  ],
+);
+
+export const supportMessages = pgTable(
+  'support_messages',
+  {
+    id: pk(),
+    ticketId: uuid('ticket_id')
+      .notNull()
+      .references(() => supportTickets.id, { onDelete: 'cascade' }),
+    authorUserId: uuid('author_user_id')
+      .notNull()
+      .references(() => users.id),
+    authorRole: varchar('author_role', { length: 16 }).notNull(),
+    body: text('body').notNull(),
+    /** Agent-only note, never shown to the customer. */
+    internal: boolean('internal').notNull().default(false),
+    attachmentFile: varchar('attachment_file', { length: 80 }),
+    attachmentType: varchar('attachment_type', { length: 40 }),
+    attachmentName: varchar('attachment_name', { length: 120 }),
+    createdAt: createdAt(),
+  },
+  (t) => [index('support_messages_ticket_idx').on(t.ticketId, t.createdAt)],
+);

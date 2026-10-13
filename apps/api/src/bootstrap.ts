@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { SandboxAirlineAdapter } from './adapters/airline/sandbox';
 import { SandboxFlightStatusAdapter } from './adapters/flightStatus/sandbox';
 import { SandboxMapsAdapter } from './adapters/maps/sandbox';
+import { SandboxMessagingAdapter } from './adapters/messaging/sandbox';
 import { SandboxPaymentAdapter } from './adapters/payments/sandbox';
 import { type Config, loadConfig } from './config';
 import { type AppContext, assertAdaptersAllowed, type Adapters } from './context';
@@ -30,6 +31,7 @@ export function buildAdapters(config: Config): Adapters {
     payments: new SandboxPaymentAdapter(webhookSecret),
     maps: new SandboxMapsAdapter(),
     flightStatus: new SandboxFlightStatusAdapter(),
+    messaging: new SandboxMessagingAdapter(),
   };
 }
 

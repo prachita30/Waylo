@@ -136,11 +136,21 @@ Update this file at the end of every module. On resumption, continue from the fi
 - [x] Web: ride "Pay to keep your seat" prompt with deadline, paid badge, RefundList (status shown honestly: pending until provider confirms) on bookings and rides, settlements on operator earnings, checkout returns to the right trip
 - [x] Tests: API 126 (9 payment/refund/settlement tests incl. idempotency, caps, failure without auto-retry, admin retry, seat release, leaver refund minus fee, settlement once + paid), web 56; all three live smokes (`smoke`, `smoke-rides`, `smoke-trip`) passed against the dev server
 
-## Phase 11 — Notifications and support
+## Phase 11 — Notifications and support ✅ (2026-10-13)
+- [x] Migration 0009_notifications_support: notifications (in-app, read state), notification_deliveries (email/SMS/push outbox with status, attempts, backoff, provider id), support_tickets (reference SR…, category, status, priority, related booking/ride, assignee, linked incident), support_messages (customer/agent, internal notes, attachments)
+- [x] MessagingAdapter (email, SMS, push) + SandboxMessagingAdapter (bounded in-memory outbox, nothing leaves the machine, failure switch); admin sandbox outbox endpoint
+- [x] Branded transactional email template (WAYLO only, sandbox notice in demo, plain-text alternative, links back into the app)
+- [x] Event → message mapping for flight confirmed / ticketing failed / cancelled, refund sent or needing attention, ride group confirmed (pay prompt), no co-riders, driver assigned, driver en route/at pickup/completed, pickup rescheduled, rider removed (flight delay/cancellation, no-show, payment timeout), flight now expected at…, support replies
+- [x] Preferences respected per channel; SMS skipped without a mobile number; deleted accounts skipped; delivery retried 3× with backoff (1/5/15 min) then marked failed
+- [x] Endpoints: GET /notifications (with unread count), POST /notifications/read (ids or all, owner-scoped); POST/GET /support/tickets, GET /support/tickets/:id, POST /support/tickets/:id/messages, POST /support/tickets/:id/close, GET /support/attachments/:messageId; admin: GET /admin/support/tickets, POST /admin/support/tickets/:id/messages (reply or internal note, status), PATCH /admin/support/tickets/:id
+- [x] Support rules: booking/ride links must belong to the customer; attachments type-sniffed (PDF/PNG/JPEG, 5 MB) and private; internal notes never shown to customers; payment/refund requests high priority; safety requests urgent + linked safety incident + escalation log; customer reply reopens; closed requests accept no replies
+- [x] Web: notification bell with unread badge and quick list, notifications page, support centre (new request with booking/ride prefill and attachment, emergency guidance, request list), conversation thread with attachments, reply and close; Support entry in the account menu
+- [x] Tests: API 134 (8 notification/support tests incl. branded email content and absence of tool branding, preference-based channels, retry/give-up, owner-scoped read, attachment privacy, internal-note privacy, agent reply notification, safety escalation, disguised attachments), web 62
+
 ## Phase 12 — Airline and inventory-partner portal
 ## Phase 13 — Internal administration dashboard
 ## Phase 14 — Analytics and business reporting
 ## Phase 15 — Integration testing, security review and deployment readiness
 
 ## Next action
-Phase 11: notifications and support (in-app notification centre from domain events, email/SMS/push adapters with sandbox outbox, preferences, support tickets with categories, attachments, status, safety escalation).
+Phase 12: airline and inventory-partner portal (partner orgs linked to airlines, offer publication with rules/eligibility/validity/inventory caps, route configuration, booking stats, ticketing/cancellation views, reporting, audit log).

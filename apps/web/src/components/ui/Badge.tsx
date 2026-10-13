@@ -80,6 +80,7 @@ const STATUS: Record<string, { tone: Tone; label: string }> = {
   resolved: { tone: 'mint', label: 'Resolved' },
   closed: { tone: 'neutral', label: 'Closed' },
   in_review: { tone: 'amber', label: 'In review' },
+  open_ticket: { tone: 'primary', label: 'Open' },
   awaiting_customer: { tone: 'lavender', label: 'Awaiting your reply' },
   escalated: { tone: 'coral', label: 'Escalated' },
 };

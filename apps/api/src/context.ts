@@ -1,6 +1,7 @@
 import type { AirlineAdapter } from './adapters/airline/types';
 import type { FlightStatusAdapter } from './adapters/flightStatus/types';
 import type { MapsAdapter } from './adapters/maps/types';
+import type { MessagingAdapter } from './adapters/messaging/types';
 import type { PaymentAdapter } from './adapters/payments/types';
 import type { Config } from './config';
 import type { Db, DbHandle } from './db/client';
@@ -26,6 +27,7 @@ export interface Adapters {
   payments: PaymentAdapter;
   maps: MapsAdapter;
   flightStatus: FlightStatusAdapter;
+  messaging: MessagingAdapter;
 }
 
 export interface AppContext {

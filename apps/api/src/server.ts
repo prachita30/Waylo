@@ -2,6 +2,7 @@ import { createApp } from './app';
 import { bootstrap } from './bootstrap';
 import { startJobs } from './lib/jobs';
 import { expireUnpaidBookings, pollPendingTicketing } from './modules/bookings/service';
+import { sendQueuedDeliveries } from './modules/notifications/service';
 import { processPendingRefunds } from './modules/payments/refunds';
 import { releaseUnpaidSeats } from './modules/payments/ridePayments';
 import { refreshFlightStatuses } from './modules/rides/flightAware';
@@ -25,6 +26,7 @@ const stopJobs = startJobs(ctx, [
   { name: 'refresh-flight-status', everyMs: 120_000, run: refreshFlightStatuses },
   { name: 'process-refunds', everyMs: 20_000, run: (c) => processPendingRefunds(c) },
   { name: 'release-unpaid-seats', everyMs: 30_000, run: releaseUnpaidSeats },
+  { name: 'send-notifications', everyMs: 10_000, run: (c) => sendQueuedDeliveries(c) },
 ]);
 
 async function shutdown(signal: string) {
