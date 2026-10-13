@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import type { Refund } from '@/components/travel/RefundList';
 import { api } from './api';
 import type { OfferDetail } from './flights';
 
@@ -37,6 +38,7 @@ export interface Booking {
   cancelledAt: string | null;
   refundDueMinor: number | null;
   payment: { id: string; status: string; amountMinor: number; refundedMinor: number; failureReason: string | null; checkoutUrl: string | null } | null;
+  refunds: Refund[];
   createdAt: string;
 }
 

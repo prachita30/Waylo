@@ -40,6 +40,8 @@ export class SandboxPaymentAdapter implements PaymentAdapter {
   private readonly byKey = new Map<string, string>();
   /** Test hook: refunds fail when true. */
   failRefunds = false;
+  /** Test hook: deliver refund webhooks before refund() returns. */
+  inlineRefundWebhooks = false;
 
   constructor(
     private readonly secret: string,
@@ -86,10 +88,12 @@ export class SandboxPaymentAdapter implements PaymentAdapter {
     const event = this.event(ok ? 'refund.succeeded' : 'refund.failed', base, {
       amountMinor: input.amountMinor,
       refundId,
+      reference: input.idempotencyKey,
       failureReason: ok ? undefined : 'Refund declined (sandbox simulation).',
     });
-    // Deliver asynchronously, like a real provider.
-    setTimeout(() => void this.send(event), 0);
+    // Deliver asynchronously like a real provider (tests can switch to inline delivery).
+    if (this.inlineRefundWebhooks) await this.send(event);
+    else setTimeout(() => void this.send(event), 0);
     return { refundId };
   }
 

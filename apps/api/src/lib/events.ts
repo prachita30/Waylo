@@ -9,7 +9,7 @@ export type DomainEvent =
   | { type: 'flight.status_changed'; flightId: string; status: string; estimatedArrivalAt: string | null; delayMinutes: number }
   | { type: 'ride.arrival_updated'; userId: string; requestId: string; expectedArrivalAt: string; delayMinutes: number }
   | { type: 'ride.pickup_rescheduled'; userIds: string[]; groupId: string; plannedPickupAt: string }
-  | { type: 'ride.rider_removed'; userId: string; requestId: string; groupId: string; reason: 'flight_delay' | 'flight_cancelled' | 'no_show' | 'operator' }
+  | { type: 'ride.rider_removed'; userId: string; requestId: string; groupId: string; reason: 'flight_delay' | 'flight_cancelled' | 'no_show' | 'operator' | 'payment_timeout' }
   | { type: 'ride.group_locked'; userIds: string[]; groupId: string }
   | { type: 'ride.group_dissolved'; userId: string; groupId: string; requestId: string }
   | { type: 'ride.driver_assigned'; userIds: string[]; groupId: string; driverName: string; vehicle: string }

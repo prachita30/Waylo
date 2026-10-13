@@ -17,10 +17,10 @@ interface SandboxPayment {
   currency: string;
   status: string;
   failureReason: string | null;
+  returnPath: string;
 }
 
-export const destinationFor = (p: Pick<SandboxPayment, 'purpose' | 'referenceId'>) =>
-  p.purpose === 'flight_booking' ? `/trips/flights/${p.referenceId}` : `/trips/rides/${p.referenceId}`;
+export const destinationFor = (p: Pick<SandboxPayment, 'returnPath'>) => p.returnPath || '/trips';
 
 /**
  * Stand-in for a payment provider's hosted checkout. It never asks for card details: the
@@ -37,8 +37,7 @@ export default function SandboxCheckout() {
   const complete = useMutation({
     mutationFn: (outcome: 'succeed' | 'fail') => api.post<{ payment: SandboxPayment }>(`/payments/sandbox/intents/${intentId}/complete`, { outcome }).then((r) => r.payment),
     onSuccess: async (p) => {
-      await qc.invalidateQueries({ queryKey: ['booking', p.referenceId] });
-      await qc.invalidateQueries({ queryKey: ['bookings'] });
+      await qc.invalidateQueries();
       if (p.status === 'succeeded') navigate(destinationFor(p), { replace: true });
       else q.refetch();
     },

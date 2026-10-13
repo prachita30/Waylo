@@ -144,6 +144,9 @@ const group = (over: Partial<RideGroup> = {}): RideGroup => ({
     removedReason: null,
     cancellationFeeMinor: null,
     leaveFeeNowMinor: 14_000,
+    paymentDueAt: null,
+    payment: { status: 'succeeded', amountMinor: 56_000, refundedMinor: 0 },
+    refunds: [],
   },
   trip: { driverFirstName: 'Ravi', vehicle: { makeModel: 'Maruti Suzuki Dzire', colour: 'White', registration: 'MH 01 DM 1001', vehicleClass: 'sedan' }, assignedAt: '2026-10-20T08:20:00Z', location: { lat: 19.05, lng: 72.86, at: '2026-10-20T08:50:00Z' } },
   policy: POLICY,
@@ -180,6 +183,34 @@ describe('Group panel', () => {
     expect(within(map).getAllByText('Pickup T2').length).toBeGreaterThan(0);
     await userEvent.selectOptions(screen.getByLabelText('Your status after landing'), 'at_pickup');
     await waitFor(() => expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ readiness: 'at_pickup' }));
+  });
+
+  it('asks a rider to pay when the group locks and shows refunds', async () => {
+    const { calls } = mockApi({
+      'GET /rides/groups/g1': () => ({
+        body: {
+          group: group({
+            me: {
+              ...group().me!,
+              status: 'payment_due',
+              paymentDueAt: '2026-10-20T08:45:00Z',
+              payment: { status: 'requires_payment', amountMinor: 56_000, refundedMinor: 0 },
+              refunds: [{ id: 'rf1', amountMinor: 12_000, reason: 'ride_left_after_lock', status: 'pending', failureReason: null, createdAt: '2026-10-20T08:00:00Z', processedAt: null }],
+            },
+          }),
+        },
+      }),
+      'POST /rides/groups/g1/pay': () => ({ body: { checkoutUrl: '/pay/sandbox/sbx_pi_x', amountMinor: 56_000, dueAt: null } }),
+    });
+    const { router } = renderRoutes([
+      { path: '/', element: <GroupPanel groupId="g1" requestId="r1" /> },
+      { path: '/pay/sandbox/:id', element: <p>checkout</p> },
+    ]);
+    expect(await screen.findByText('Pay ₹560 to keep your seat')).toBeInTheDocument();
+    expect(screen.getByText('Left the ride (less fee)', { exact: false })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Pay now' }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/pay/sandbox/sbx_pi_x'));
+    expect(calls.some((c) => c.method === 'POST' && c.path === '/rides/groups/g1/pay')).toBe(true);
   });
 
   it('builds the status timeline', () => {

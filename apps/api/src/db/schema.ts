@@ -554,6 +554,8 @@ export const rideParticipants = pgTable(
     readiness: readinessEnum('readiness').notNull().default('not_landed'),
     readinessUpdatedAt: timestamp('readiness_updated_at', { withTimezone: true }),
     removedReason: varchar('removed_reason', { length: 32 }),
+    /** Set when the group locks; the seat is released if unpaid by then. */
+    paymentDueAt: timestamp('payment_due_at', { withTimezone: true }),
     boardedAt: timestamp('boarded_at', { withTimezone: true }),
     droppedOffAt: timestamp('dropped_off_at', { withTimezone: true }),
     joinedAt: timestamp('joined_at', { withTimezone: true }).notNull().defaultNow(),
@@ -739,6 +741,7 @@ export const rideTrips = pgTable(
     /** Operator earning = vehicle fare minus commission, fixed at completion. */
     operatorEarningMinor: integer('operator_earning_minor'),
     commissionMinor: integer('commission_minor'),
+    settlementId: uuid('settlement_id'),
   },
   (t) => [index('ride_trips_operator_idx').on(t.operatorId), index('ride_trips_driver_idx').on(t.driverId)],
 );
@@ -778,4 +781,68 @@ export const safetyIncidents = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [index('incidents_status_idx').on(t.status, t.severity)],
+);
+
+// ---------------------------------------------------------------- refunds & settlements
+
+export const refundStatusEnum = pgEnum('refund_status', ['pending', 'processing', 'succeeded', 'failed']);
+
+/**
+ * Every refund owed to a customer. The idempotency key (e.g. "booking:<id>:cancel") makes it
+ * impossible to create the same refund twice; amounts are capped against the payment.
+ */
+export const refunds = pgTable(
+  'refunds',
+  {
+    id: pk(),
+    paymentId: uuid('payment_id')
+      .notNull()
+      .references(() => payments.id),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    amountMinor: integer('amount_minor').notNull(),
+    reason: varchar('reason', { length: 40 }).notNull(),
+    idempotencyKey: varchar('idempotency_key', { length: 120 }).notNull(),
+    status: refundStatusEnum('status').notNull().default('pending'),
+    providerRefundId: varchar('provider_refund_id', { length: 128 }),
+    failureReason: text('failure_reason'),
+    attempts: integer('attempts').notNull().default(0),
+    requestedBy: varchar('requested_by', { length: 16 }).notNull().default('system'),
+    processedAt: timestamp('processed_at', { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex('refunds_idempotency_uq').on(t.idempotencyKey),
+    index('refunds_payment_idx').on(t.paymentId),
+    index('refunds_status_idx').on(t.status),
+    check('refunds_amount_ck', sql`${t.amountMinor} > 0`),
+  ],
+);
+
+export const settlementStatusEnum = pgEnum('settlement_status', ['pending', 'paid', 'failed']);
+
+/** Operator payout batch for completed trips in a period. */
+export const settlements = pgTable(
+  'settlements',
+  {
+    id: pk(),
+    operatorId: uuid('operator_id')
+      .notNull()
+      .references(() => operators.id),
+    periodStart: timestamp('period_start', { withTimezone: true }).notNull(),
+    periodEnd: timestamp('period_end', { withTimezone: true }).notNull(),
+    tripsCount: integer('trips_count').notNull(),
+    grossFareMinor: integer('gross_fare_minor').notNull(),
+    commissionMinor: integer('commission_minor').notNull(),
+    payoutMinor: integer('payout_minor').notNull(),
+    status: settlementStatusEnum('status').notNull().default('pending'),
+    /** Bank transfer / payout provider reference, recorded when paid. */
+    payoutReference: varchar('payout_reference', { length: 80 }),
+    paidAt: timestamp('paid_at', { withTimezone: true }),
+    createdBy: uuid('created_by').references(() => users.id),
+    createdAt: createdAt(),
+  },
+  (t) => [index('settlements_operator_idx').on(t.operatorId, t.periodEnd), check('settlements_amounts_ck', sql`${t.payoutMinor} = ${t.grossFareMinor} - ${t.commissionMinor}`)],
 );

@@ -12,6 +12,7 @@ import { ErrorState, Notice, SkeletonList } from '@/components/ui/States';
 import { BookingTimeline, type TimelineStep } from '@/components/travel/BookingTimeline';
 import { AirlineMark, useNow } from '@/components/travel/FlightCard';
 import { PriceBreakdown } from '@/components/travel/PriceBreakdown';
+import { RefundList } from '@/components/travel/RefundList';
 import { api, isApiError } from '@/lib/api';
 import { type Booking, goToCheckout, useBooking } from '@/lib/bookings';
 import { formatDate, formatDateTime, formatDuration, formatTime, relativeTime } from '@/lib/dates';
@@ -93,7 +94,7 @@ export default function FlightBookingDetail() {
           )}
           {b.status === 'ticketing_failed' && (
             <Notice tone="danger" title="The airline could not issue your ticket">
-              {b.failureReason} A full refund of {formatMoney(b.refundDueMinor ?? b.totalMinor)} is being returned to your original payment method.
+              {b.failureReason} A full refund of {formatMoney(b.refundDueMinor ?? b.totalMinor)} goes back to your original payment method. Its status is shown below.
             </Notice>
           )}
           {payable && (
@@ -185,6 +186,7 @@ export default function FlightBookingDetail() {
                 totalLabel={b.payment?.status === 'succeeded' ? 'Paid' : 'Total'}
                 totalMinor={b.totalMinor}
               />
+              <RefundList refunds={b.refunds ?? []} />
               {cancellation.cancellable ? (
                 <Button variant="secondary" block onClick={() => setCancelOpen(true)}>
                   Cancel booking

@@ -100,8 +100,8 @@ describe('Book page', () => {
 describe('Sandbox checkout', () => {
   it('labels the sandbox and completes payment through the API', async () => {
     const { calls } = mockApi({
-      'GET /payments/sandbox/intents/sbx_pi_abc': () => ({ body: { payment: { id: 'p1', purpose: 'flight_booking', referenceId: 'b1', amountMinor: 259_200, currency: 'INR', status: 'requires_payment', failureReason: null } } }),
-      'POST /payments/sandbox/intents/sbx_pi_abc/complete': () => ({ body: { payment: { id: 'p1', purpose: 'flight_booking', referenceId: 'b1', status: 'succeeded' } } }),
+      'GET /payments/sandbox/intents/sbx_pi_abc': () => ({ body: { payment: { id: 'p1', purpose: 'flight_booking', referenceId: 'b1', amountMinor: 259_200, currency: 'INR', status: 'requires_payment', failureReason: null, returnPath: '/trips/flights/b1' } } }),
+      'POST /payments/sandbox/intents/sbx_pi_abc/complete': () => ({ body: { payment: { id: 'p1', purpose: 'flight_booking', referenceId: 'b1', status: 'succeeded', returnPath: '/trips/flights/b1' } } }),
     });
     const { router } = renderRoutes(
       [
@@ -136,6 +136,7 @@ const booking = (over: Partial<Booking> = {}): Booking => ({
   cancelledAt: null,
   refundDueMinor: null,
   payment: { id: 'p1', status: 'succeeded', amountMinor: 170_000, refundedMinor: 0, failureReason: null, checkoutUrl: '/pay/sandbox/sbx_pi_abc' },
+  refunds: [],
   createdAt: '2026-10-13T09:58:00Z',
   ...over,
 });
@@ -148,6 +149,20 @@ describe('Booking detail', () => {
     expect(screen.getByText(/99912345670/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Cancel booking' }));
     expect(await screen.findByText(/you will be refunded ₹500 of ₹1,700/)).toBeInTheDocument();
+  });
+
+  it('shows refund progress on a cancelled booking', async () => {
+    mockApi({
+      'GET /flights/bookings/b1': () => ({
+        body: {
+          booking: booking({ status: 'cancelled', cancelledAt: '2026-10-14T10:00:00Z', refundDueMinor: 50_000, refunds: [{ id: 'r1', amountMinor: 50_000, reason: 'flight_cancellation', status: 'succeeded', failureReason: null, createdAt: '2026-10-14T10:00:00Z', processedAt: '2026-10-14T10:05:00Z' }] }),
+          cancellation: { cancellable: false, reason: 'Only confirmed bookings can be cancelled.' },
+        },
+      }),
+    });
+    renderRoutes([{ path: '/trips/flights/:bookingId', element: <FlightBookingDetail /> }], '/trips/flights/b1');
+    expect(await screen.findByText(/Booking cancelled ·/)).toBeInTheDocument();
+    expect(screen.getByText('Refunded')).toBeInTheDocument();
   });
 
   it('never presents a ticketing booking as confirmed', async () => {

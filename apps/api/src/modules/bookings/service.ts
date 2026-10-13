@@ -8,7 +8,15 @@ import type { AuthUser } from '../../http/auth';
 import { AppError, conflict, gone, notFound, unavailable } from '../../http/errors';
 import { recordAudit } from '../../lib/audit';
 import { getOffer, remainingSeats } from '../flights/service';
+import { type DomainEvent, emit } from '../../lib/events';
+import { refundDto, refundsForPayment, requestRefund } from '../payments/refunds';
 import { checkoutUrlFor, createPayment, latestPaymentFor, registerPaymentPurpose } from '../payments/service';
+
+/** The captured payment for a booking, if any. */
+async function capturedPayment(tx: DbOrTx, bookingId: string) {
+  const rows = await tx.select().from(payments).where(and(eq(payments.purpose, 'flight_booking'), eq(payments.referenceId, bookingId)));
+  return rows.find((p) => p.status === 'succeeded' || p.status === 'partially_refunded');
+}
 import { deletionBlockers } from '../users/service';
 
 export const LOCK_MINUTES = 10;
@@ -226,6 +234,7 @@ registerPaymentPurpose('flight_booking', {
     if (b.status !== 'pending_payment' && b.status !== 'payment_failed') {
       // Paid after expiry or cancellation: the money must go back.
       await tx.update(flightBookings).set({ refundDueMinor: payment.amountMinor, failureReason: 'Payment arrived after the booking had closed.' }).where(eq(flightBookings.id, b.id));
+      await requestRefund(tx, { paymentId: payment.id, amountMinor: payment.amountMinor, reason: 'late_payment', idempotencyKey: `booking:${b.id}:late_payment:${payment.id}` });
       return;
     }
     await tx.update(flightBookings).set({ status: 'ticketing', nextTicketingCheckAt: new Date() }).where(eq(flightBookings.id, b.id));
@@ -244,6 +253,7 @@ registerPaymentPurpose('flight_booking', {
  * reports a ticket. Pending issuance is retried with backoff; failure triggers a full refund.
  */
 export async function runTicketing(ctx: AppContext, bookingId: string, now = new Date()) {
+  const events: DomainEvent[] = [];
   const [b] = await ctx.db.select().from(flightBookings).where(eq(flightBookings.id, bookingId));
   if (!b || b.status !== 'ticketing' || !b.airlineOrderRef) return;
   let result;
@@ -264,6 +274,7 @@ export async function runTicketing(ctx: AppContext, bookingId: string, now = new
         await tx.update(bookingPassengers).set({ ticketNumber: result.ticketNumbers[i] ?? null }).where(eq(bookingPassengers.id, p.id));
       }
       await recordAudit(tx, { action: 'flight_booking.ticketed', entityType: 'flight_booking', entityId: bookingId, metadata: { pnr: result.pnr } });
+      events.push({ type: 'flight_booking.confirmed', userId: cur.userId, bookingId, reference: cur.reference });
     } else if (result.status === 'failed' || attempts >= MAX_TICKETING_ATTEMPTS) {
       const reason = result.status === 'failed' ? result.reason : 'The airline did not issue a ticket in time.';
       await tx
@@ -271,12 +282,16 @@ export async function runTicketing(ctx: AppContext, bookingId: string, now = new
         .set({ status: 'ticketing_failed', failureReason: reason, ticketingAttempts: attempts, nextTicketingCheckAt: null, refundDueMinor: cur.totalMinor })
         .where(eq(flightBookings.id, bookingId));
       await releaseSeats(tx, cur);
+      const paid = await capturedPayment(tx, bookingId);
+      if (paid) await requestRefund(tx, { paymentId: paid.id, amountMinor: cur.totalMinor, reason: 'ticketing_failed', idempotencyKey: `booking:${bookingId}:ticketing_failed` });
       await recordAudit(tx, { action: 'flight_booking.ticketing_failed', entityType: 'flight_booking', entityId: bookingId, metadata: { reason } });
+      events.push({ type: 'flight_booking.ticketing_failed', userId: cur.userId, bookingId, reference: cur.reference });
     } else {
       const delay = TICKETING_BACKOFF_SECONDS[Math.min(attempts - 1, TICKETING_BACKOFF_SECONDS.length - 1)]!;
       await tx.update(flightBookings).set({ ticketingAttempts: attempts, nextTicketingCheckAt: new Date(now.getTime() + delay * 1000) }).where(eq(flightBookings.id, bookingId));
     }
   });
+  await emit(ctx, events);
 }
 
 /** Background job: re-checks bookings whose ticket issuance is still pending. */
@@ -346,6 +361,7 @@ export async function toBookingDto(db: DbOrTx, b: BookingRow) {
     payment: payment
       ? { id: payment.id, status: payment.status, amountMinor: payment.amountMinor, refundedMinor: payment.refundedMinor, failureReason: payment.failureReason, checkoutUrl: checkoutUrlFor(payment) }
       : null,
+    refunds: payment ? (await refundsForPayment(db, payment.id)).map(refundDto) : [],
     createdAt: b.createdAt.toISOString(),
   };
 }
@@ -390,8 +406,13 @@ export async function cancelBooking(ctx: AppContext, user: AuthUser, id: string,
       .where(eq(flightBookings.id, id))
       .returning();
     await releaseSeats(tx, { ...cur, seatsHeld: cur.seatsHeld });
+    const paid = await capturedPayment(tx, id);
+    if (paid && refundMinor > 0) await requestRefund(tx, { paymentId: paid.id, amountMinor: refundMinor, reason: 'flight_cancellation', idempotencyKey: `booking:${id}:cancel` });
     await recordAudit(tx, { actorUserId: user.id, actorRole: user.role, action: 'flight_booking.cancelled', entityType: 'flight_booking', entityId: id, metadata: { refundMinor } });
     return updated!;
+  }).then(async (updated) => {
+    await emit(ctx, { type: 'flight_booking.cancelled', userId: updated.userId, bookingId: id, reference: updated.reference, refundMinor: updated.refundDueMinor });
+    return updated;
   });
 }
 

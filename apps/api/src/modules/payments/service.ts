@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
-import type { PaymentEvent } from '../../adapters/payments/types';
 import type { AppContext } from '../../context';
 import type { DbOrTx, Tx } from '../../db/client';
 import { paymentEvents, payments } from '../../db/schema';
+import { emit } from '../../lib/events';
+import { applyRefundEvent } from './refunds';
 
 export type PaymentRow = typeof payments.$inferSelect;
 type AfterCommit = () => Promise<void>;
@@ -16,7 +17,6 @@ type AfterCommit = () => Promise<void>;
 export interface PaymentPurposeHandler {
   onSucceeded(ctx: AppContext, tx: Tx, payment: PaymentRow): Promise<AfterCommit | void>;
   onFailed(ctx: AppContext, tx: Tx, payment: PaymentRow, reason: string): Promise<AfterCommit | void>;
-  onRefund?(ctx: AppContext, tx: Tx, payment: PaymentRow, event: PaymentEvent): Promise<AfterCommit | void>;
 }
 const handlers = new Map<string, PaymentPurposeHandler>();
 export function registerPaymentPurpose(purpose: string, handler: PaymentPurposeHandler) {
@@ -117,9 +117,10 @@ export async function handleWebhook(ctx: AppContext, rawBody: Buffer, signature:
         .returning();
       const next = await handler?.onFailed(ctx, tx, updated!, event.failureReason ?? 'Payment failed');
       if (next) after.push(next);
-    } else if (handler?.onRefund) {
-      const next = await handler.onRefund(ctx, tx, payment, event);
-      if (next) after.push(next);
+    } else {
+      // refund.succeeded / refund.failed: settle the matching refund in the ledger.
+      const events = await applyRefundEvent(tx, event);
+      if (events.length) after.push(() => emit(ctx, events));
     }
     await tx.update(paymentEvents).set({ processedAt: new Date() }).where(eq(paymentEvents.id, inserted.id));
     return 'processed' as const;

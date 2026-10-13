@@ -5,6 +5,7 @@ import { flights, rideGroups, rideParticipants, rideRequests } from '../../db/sc
 import { recordAudit } from '../../lib/audit';
 import { type DomainEvent, emit } from '../../lib/events';
 import { getRideSettings } from '../../lib/settings';
+import { settleDepartingRider } from '../payments/ridePayments';
 import { activeMembers, applyPlan, matchOptions, reschedule, toRider } from './groups';
 
 type FlightRow = typeof flights.$inferSelect;
@@ -118,6 +119,7 @@ async function removeFromGroup(ctx: AppContext, tx: Tx, g: typeof rideGroups.$in
   const leaving = members.find((m) => m.p.id === participantId);
   if (!leaving) return events;
   await tx.update(rideParticipants).set({ status: 'removed', removedReason: reason, leftAt: now }).where(eq(rideParticipants.id, participantId));
+  await settleDepartingRider(tx, leaving.p, 'ride_removed', 0);
   await tx
     .update(rideRequests)
     .set(reason === 'flight_cancelled' ? { status: 'cancelled', closedReason: 'flight_cancelled', cancelledAt: now } : { status: 'open' })

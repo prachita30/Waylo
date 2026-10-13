@@ -2,7 +2,9 @@ import { formatMoney } from '@waylo/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Briefcase, CarFront, LogOut, MapPin, Users } from 'lucide-react';
 import { useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
+import { RefundList } from '@/components/travel/RefundList';
+import { goToCheckout } from '@/lib/bookings';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge, StatusBadge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -50,6 +52,12 @@ export function GroupPanel({ groupId, requestId }: { groupId: string; requestId:
     mutationFn: (value: Readiness) => api.post<{ group: RideGroup }>(`/rides/groups/${groupId}/readiness`, { readiness: value }),
     onSuccess: (r) => qc.setQueryData(['ride-group', groupId], r.group),
   });
+  const navigate = useNavigate();
+  const pay = useMutation({
+    mutationFn: () => api.post<{ checkoutUrl: string | null }>(`/rides/groups/${groupId}/pay`),
+    onSuccess: (r) => r.checkoutUrl && goToCheckout(r.checkoutUrl, navigate),
+    onError: (e) => setErr(e instanceof ApiError ? e.message : 'Could not start payment.'),
+  });
   const leave = useMutation({
     mutationFn: () => api.post<{ feeMinor: number; requestStatus: string }>(`/rides/groups/${groupId}/leave`, { cancelRequest }),
     onSuccess: async () => {
@@ -69,6 +77,15 @@ export function GroupPanel({ groupId, requestId }: { groupId: string; requestId:
   return (
     <section className="mb-8 grid gap-6 lg:grid-cols-[1fr_20rem]" aria-label="Your ride group">
       <div className="space-y-6">
+        {me?.status === 'payment_due' && (
+          <Notice tone="warning" title={`Pay ${formatMoney(me.finalTotalMinor ?? me.price.totalMinor)} to keep your seat`}>
+            <p>Your group is confirmed. Complete payment{me.paymentDueAt ? ` by ${formatTime(me.paymentDueAt)}` : ''}, or the seat is released at no charge.</p>
+            <Button size="sm" className="mt-2" loading={pay.isPending} onClick={() => pay.mutate()}>
+              Pay now
+            </Button>
+            {err && <p className="mt-2 text-sm text-danger">{err}</p>}
+          </Notice>
+        )}
         <Card>
           <CardSection>
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -183,6 +200,8 @@ export function GroupPanel({ groupId, requestId }: { groupId: string; requestId:
                 </Button>
               )}
               {me.cancellationFeeMinor ? <p className="text-xs text-coral">Cancellation fee: {formatMoney(me.cancellationFeeMinor)}</p> : null}
+              {me.payment?.status === 'succeeded' && <Badge tone="mint">Paid</Badge>}
+              <RefundList refunds={me.refunds ?? []} />
             </CardSection>
           </Card>
         )}

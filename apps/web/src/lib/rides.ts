@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
+import type { Refund } from '@/components/travel/RefundList';
 import { api } from './api';
 
 export interface PickupZone {
@@ -179,6 +180,9 @@ export interface RideGroup {
     removedReason: string | null;
     cancellationFeeMinor: number | null;
     leaveFeeNowMinor: number | null;
+    paymentDueAt: string | null;
+    payment: { status: string; amountMinor: number; refundedMinor: number } | null;
+    refunds: Refund[];
   } | null;
   trip: { driverFirstName: string; vehicle: { makeModel: string; colour: string; registration: string; vehicleClass: string }; assignedAt: string; location: { lat: number; lng: number; at: string } | null } | null;
   policy: RidePolicy;

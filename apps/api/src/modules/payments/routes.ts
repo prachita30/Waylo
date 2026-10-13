@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { SandboxPaymentAdapter } from '../../adapters/payments/sandbox';
 import { WebhookSignatureError } from '../../adapters/payments/types';
 import type { AppContext } from '../../context';
-import { payments } from '../../db/schema';
+import { payments, rideParticipants } from '../../db/schema';
 import { currentUser, requireAuth } from '../../http/auth';
 import { AppError, conflict, notFound } from '../../http/errors';
 import { body, params } from '../../http/validate';
@@ -32,6 +32,13 @@ export function paymentsRouter(ctx: AppContext): Router {
   const r = Router();
   const intentParam = z.object({ intentId: z.string().regex(/^sbx_pi_[a-f0-9]{32}$/) });
 
+  /** Where the customer returns after checkout. */
+  async function returnPathFor(p: typeof payments.$inferSelect) {
+    if (p.purpose === 'flight_booking') return `/trips/flights/${p.referenceId}`;
+    const [part] = await ctx.db.select({ requestId: rideParticipants.requestId }).from(rideParticipants).where(eq(rideParticipants.id, p.referenceId));
+    return part ? `/trips/rides/${part.requestId}` : '/trips';
+  }
+
   async function ownSandboxPayment(userId: string, intentId: string) {
     if (!(ctx.adapters.payments instanceof SandboxPaymentAdapter)) throw notFound('Checkout');
     const [p] = await ctx.db
@@ -46,7 +53,7 @@ export function paymentsRouter(ctx: AppContext): Router {
   r.get('/payments/sandbox/intents/:intentId', requireAuth, async (req, res) => {
     const { intentId } = params(req, intentParam);
     const p = await ownSandboxPayment(currentUser(req).id, intentId);
-    res.json({ payment: { id: p.id, purpose: p.purpose, referenceId: p.referenceId, amountMinor: p.amountMinor, currency: p.currency, status: p.status, failureReason: p.failureReason } });
+    res.json({ payment: { id: p.id, purpose: p.purpose, referenceId: p.referenceId, amountMinor: p.amountMinor, currency: p.currency, status: p.status, failureReason: p.failureReason, returnPath: await returnPathFor(p) } });
   });
 
   /**
@@ -65,7 +72,7 @@ export function paymentsRouter(ctx: AppContext): Router {
       throw new AppError(409, 'sandbox_error', (e as Error).message);
     }
     const [after] = await ctx.db.select().from(payments).where(eq(payments.id, p.id));
-    res.json({ payment: { id: after!.id, status: after!.status, failureReason: after!.failureReason, purpose: after!.purpose, referenceId: after!.referenceId } });
+    res.json({ payment: { id: after!.id, status: after!.status, failureReason: after!.failureReason, purpose: after!.purpose, referenceId: after!.referenceId, returnPath: await returnPathFor(after!) } });
   });
 
   return r;

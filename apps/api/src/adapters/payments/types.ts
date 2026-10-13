@@ -24,6 +24,8 @@ export interface PaymentEvent {
   paymentId: string;
   amountMinor: number;
   refundId?: string;
+  /** Merchant reference echoed back on refund events (WAYLO refund id). */
+  reference?: string;
   failureReason?: string;
   createdAt: string;
 }

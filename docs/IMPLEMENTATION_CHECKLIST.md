@@ -125,7 +125,17 @@ Update this file at the end of every module. On resumption, continue from the fi
 - [x] Bug found and fixed while testing: supply lookup ran outside the active transaction (deadlock on single-connection PGlite; wasted pool connection on Postgres)
 - [x] Tests: API 117 (12 operator tests incl. approval gates, documents privacy, accept race, driver double-booking, full trip lifecycle with grace/no-show/off-route/earnings, release, driver scoping, supply gating, incidents), web 54; live smoke `node scripts/smoke-trip.mjs` passed (lock → accept → complete, ₹915.11 earning after ₹161.49 commission)
 
-## Phase 10 — Payments, refunds and settlements
+## Phase 10 — Payments, refunds and settlements ✅ (2026-10-13)
+- [x] Migration 0008_payments_refunds: refunds (unique idempotency key, status, provider refund id, attempts, positive-amount check), settlements (payout = gross − commission check), participant payment_due_at, ride_trips.settlement_id
+- [x] Ride payments: groups lock into `payment_due` with a deadline (≤30 min, ≥15 min before pickup); intents created after commit via the domain event; verified webhook confirms the seat; unpaid seats released by a job (request cancelled with reason, payment cancelled, others keep prices, group cancelled if nobody paid); payment arriving after release is refunded in full
+- [x] Refund ledger: idempotent by key, capped at paid − refunded − queued under a payment row lock; sources: flight cancellation (fare-rule amount), ticketing failure (full), late flight payment (full), ride leave after lock (paid − fee; unpaid seats pay no fee), rider removed by flight change/cancellation (full); no-shows are not refunded
+- [x] Refund execution job → provider refund (WAYLO refund id as merchant reference) → signed refund webhook updates refund + payment (refunded / partially_refunded); provider errors mark the refund failed for review and are never retried automatically; admin retry endpoint (audited)
+- [x] Settlements: admin run creates one batch per operator over completed, unsettled trips (each trip settled once), mark paid with payout reference (no money moves in the sandbox), operator view of own settlements
+- [x] Endpoints: POST /rides/groups/:id/pay; GET /admin/payments, GET /admin/refunds, POST /admin/refunds/:id/retry, GET /admin/settlements, POST /admin/settlements/run, POST /admin/settlements/:id/paid, GET /operator/settlements; sandbox checkout returns a return path per purpose
+- [x] Domain events now emitted for booking confirmed/ticketing failed/cancelled, group locked/dissolved, refund processed (consumed by notifications in Phase 11)
+- [x] Web: ride "Pay to keep your seat" prompt with deadline, paid badge, RefundList (status shown honestly: pending until provider confirms) on bookings and rides, settlements on operator earnings, checkout returns to the right trip
+- [x] Tests: API 126 (9 payment/refund/settlement tests incl. idempotency, caps, failure without auto-retry, admin retry, seat release, leaver refund minus fee, settlement once + paid), web 56; all three live smokes (`smoke`, `smoke-rides`, `smoke-trip`) passed against the dev server
+
 ## Phase 11 — Notifications and support
 ## Phase 12 — Airline and inventory-partner portal
 ## Phase 13 — Internal administration dashboard
@@ -133,4 +143,4 @@ Update this file at the end of every module. On resumption, continue from the fi
 ## Phase 15 — Integration testing, security review and deployment readiness
 
 ## Next action
-Phase 10: payments, refunds and settlements (ride payment at lock, refund execution for flight refunds/ticketing failures/ride fees, refund records + webhooks, operator settlements).
+Phase 11: notifications and support (in-app notification centre from domain events, email/SMS/push adapters with sandbox outbox, preferences, support tickets with categories, attachments, status, safety escalation).

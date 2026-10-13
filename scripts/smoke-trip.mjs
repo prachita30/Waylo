@@ -58,7 +58,14 @@ const opt = (await b('GET', `/rides/requests/${rb.id}/matches`)).groups.find((x)
 await b('POST', `/rides/groups/${g.id}/join`, { requestId: rb.id, acceptedMaxTotalMinor: opt.you.price.totalMinor });
 const locked = (await a('GET', `/rides/groups/${g.id}`)).group;
 if (locked.status !== 'locked') throw new Error(`expected locked, got ${locked.status}`);
-step(`sedan filled (4/4 seats) and locked; rider A pays ${rupees(locked.me.finalTotalMinor)}`);
+step(`sedan filled (4/4 seats) and locked; rider A owes ${rupees(locked.me.finalTotalMinor)}`);
+for (const c of [a, b]) {
+  const { checkoutUrl } = await c('POST', `/rides/groups/${g.id}/pay`);
+  await c('POST', `/payments/sandbox/intents/${checkoutUrl.split('/').pop()}/complete`, { outcome: 'succeed' });
+}
+const paid = (await b('GET', `/rides/groups/${g.id}`)).group.me;
+if (paid.status !== 'confirmed') throw new Error(`expected confirmed seat, got ${paid.status}`);
+step('both riders paid through the sandbox checkout (applied via signed webhooks); seats confirmed');
 
 const offers = (await owner('GET', '/operator/trips?tab=offers')).items;
 if (!offers.some((o) => o.groupId === g.id)) throw new Error('trip not offered to the demo operator');

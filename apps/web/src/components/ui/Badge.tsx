@@ -63,6 +63,11 @@ const STATUS: Record<string, { tone: Tone; label: string }> = {
   no_match: { tone: 'neutral', label: 'No match found' },
   // generic
   pending: { tone: 'amber', label: 'Pending' },
+  payment_due: { tone: 'amber', label: 'Payment due' },
+  requires_payment: { tone: 'amber', label: 'Awaiting payment' },
+  partially_refunded: { tone: 'lavender', label: 'Partly refunded' },
+  no_show: { tone: 'danger', label: 'No-show' },
+  paid: { tone: 'mint', label: 'Paid' },
   approved: { tone: 'mint', label: 'Approved' },
   rejected: { tone: 'danger', label: 'Rejected' },
   suspended: { tone: 'danger', label: 'Suspended' },

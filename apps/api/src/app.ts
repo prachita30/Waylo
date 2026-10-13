@@ -12,9 +12,11 @@ import { authRouter } from './modules/auth/routes';
 import { bookingsRouter } from './modules/bookings/routes';
 import { flightsRouter } from './modules/flights/routes';
 import { healthRouter, metaRouter } from './modules/meta/routes';
+import { financeRouter } from './modules/payments/adminRoutes';
 import { paymentsRouter, paymentWebhookRouter } from './modules/payments/routes';
 import { reviewRouter } from './modules/admin/review';
 import { registerSupply } from './modules/operator/fleet';
+import { registerRidePayments } from './modules/payments/ridePayments';
 import { incidentsRouter, operatorRouter } from './modules/operator/routes';
 import { ridesRouter } from './modules/rides/routes';
 import { usersRouter } from './modules/users/routes';
@@ -25,6 +27,7 @@ export const CSRF_EXEMPT = ['/payments/webhooks/'];
 export function createApp(ctx: AppContext) {
   // Matching uses approved operator capacity as supply.
   registerSupply();
+  registerRidePayments();
   const app = express();
   app.disable('x-powered-by');
   if (ctx.config.TRUST_PROXY) app.set('trust proxy', 1);
@@ -66,6 +69,7 @@ export function createApp(ctx: AppContext) {
   v1.use(operatorRouter(ctx));
   v1.use(incidentsRouter(ctx));
   v1.use(reviewRouter(ctx));
+  v1.use(financeRouter(ctx));
   app.use('/api/v1', v1);
 
   app.use(notFoundHandler);

@@ -10,6 +10,7 @@ import { limiter } from '../../http/rateLimit';
 import { body, params, query } from '../../http/validate';
 import { SandboxFlightStatusAdapter } from '../../adapters/flightStatus/sandbox';
 import { recordAudit } from '../../lib/audit';
+import { ridePaymentCheckout } from '../payments/ridePayments';
 import { updateFlightStatus } from './flightAware';
 import { findMatches, joinGroup, leaveGroup, loadGroupForUser, READINESS, setReadiness, startGroup, toGroupDto } from './groups';
 import { cancelOpenRequest, createRideRequest, listRideRequests, loadRideRequest, lookupArrival, SERVICE_RADIUS_KM, serviceAreas, toRideRequestDto } from './requests';
@@ -114,6 +115,12 @@ export function ridesRouter(ctx: AppContext): Router {
     const { groupId } = params(req, groupParam);
     const { cancelRequest } = body(req, z.object({ cancelRequest: z.boolean().default(false) }));
     res.json(await leaveGroup(ctx, currentUser(req), groupId, { cancelRequest }));
+  });
+
+  /** Checkout for the rider's seat once the group has locked. */
+  r.post('/rides/groups/:groupId/pay', requireAuth, async (req, res) => {
+    const { groupId } = params(req, groupParam);
+    res.json(await ridePaymentCheckout(ctx, currentUser(req).id, groupId));
   });
 
   r.post('/rides/groups/:groupId/readiness', requireAuth, async (req, res) => {

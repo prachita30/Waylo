@@ -17,8 +17,12 @@ import { pickupZones, rideGroups, rideParticipants, rideRequests, users } from '
 import type { AuthUser } from '../../http/auth';
 import { AppError, conflict, notFound } from '../../http/errors';
 import { recordAudit } from '../../lib/audit';
+import { type DomainEvent, emit } from '../../lib/events';
 import { getRideSettings, type RideSettings } from '../../lib/settings';
 import { riderTripView } from '../operator/trips';
+import { refundDto, refundsForPayment } from '../payments/refunds';
+import { settleDepartingRider } from '../payments/ridePayments';
+import { latestPaymentFor } from '../payments/service';
 import type { RideRequestRow } from './requests';
 
 export type GroupRow = typeof rideGroups.$inferSelect;
@@ -420,8 +424,10 @@ export async function leaveGroup(ctx: AppContext, user: AuthUser, groupId: strin
     if (!mine) throw notFound('Ride group');
     if (!['forming', 'locked', 'assigned'].includes(g.status)) throw conflict('not_cancellable', 'The ride has already started.');
 
-    const fee = cancellationFee(mine.p, g, s, now);
+    // A fee is only taken from a captured payment; an unpaid seat is simply released.
+    const fee = mine.p.status === 'confirmed' ? cancellationFee(mine.p, g, s, now) : 0;
     await tx.update(rideParticipants).set({ status: 'left', leftAt: now, cancellationFeeMinor: fee || null }).where(eq(rideParticipants.id, mine.p.id));
+    if (g.status !== 'forming') await settleDepartingRider(tx, mine.p, 'ride_left_after_lock', fee);
     // Before lock a rider may look for another group; after lock (or if asked) the request is closed.
     const reopen = g.status === 'forming' && !opts.cancelRequest && mine.r.expectedArrivalAt.getTime() + mine.r.maxWaitMinutes * 60_000 > now.getTime();
     await tx
@@ -475,7 +481,8 @@ export function onGroupLocked(hook: LockHook) {
  * A lone rider who did not accept riding solo is released instead.
  */
 export async function lockGroup(ctx: AppContext, groupId: string, now = new Date()) {
-  return ctx.db.transaction(async (tx) => {
+  const events: DomainEvent[] = [];
+  const result = await ctx.db.transaction(async (tx) => {
     const [g] = await tx.select().from(rideGroups).where(eq(rideGroups.id, groupId)).for('update');
     if (!g || g.status !== 'forming') return null;
     const members = await activeMembers(tx, g.id);
@@ -489,17 +496,23 @@ export async function lockGroup(ctx: AppContext, groupId: string, now = new Date
       await tx.update(rideRequests).set({ status: 'no_match' }).where(eq(rideRequests.id, only.r.id));
       await tx.update(rideGroups).set({ status: 'cancelled', cancelledAt: now, cancelReason: 'No other riders joined.' }).where(eq(rideGroups.id, g.id));
       await recordAudit(tx, { action: 'ride_group.dissolved', entityType: 'ride_group', entityId: g.id });
+      events.push({ type: 'ride.group_dissolved', userId: only.p.userId, groupId: g.id, requestId: only.r.id });
       return null;
     }
+    // Riders pay their final price now; unpaid seats are released at the deadline.
+    const deadline = new Date(Math.max(now.getTime() + 10 * 60_000, Math.min(now.getTime() + 30 * 60_000, g.plannedPickupAt.getTime() - 15 * 60_000)));
     for (const { p } of members) {
-      await tx.update(rideParticipants).set({ status: 'confirmed', finalTotalMinor: p.currentTotalMinor }).where(eq(rideParticipants.id, p.id));
+      await tx.update(rideParticipants).set({ status: 'payment_due', finalTotalMinor: p.currentTotalMinor, paymentDueAt: deadline }).where(eq(rideParticipants.id, p.id));
     }
     const [locked] = await tx.update(rideGroups).set({ status: 'locked', lockedAt: now }).where(eq(rideGroups.id, g.id)).returning();
     const fresh = await tx.select().from(rideParticipants).where(and(eq(rideParticipants.groupId, g.id), inArray(rideParticipants.status, ACTIVE)));
     for (const hook of lockHooks) await hook(ctx, tx, locked!, fresh);
     await recordAudit(tx, { action: 'ride_group.locked', entityType: 'ride_group', entityId: g.id, metadata: { parties: members.length } });
+    events.push({ type: 'ride.group_locked', userIds: members.map((m) => m.p.userId), groupId: g.id });
     return locked!;
   });
+  await emit(ctx, events);
+  return result;
 }
 
 /** Background job: lock groups whose lock time has come. */
@@ -539,6 +552,8 @@ export async function toGroupDto(ctx: AppContext, g: GroupRow, viewerId: string)
     .orderBy(asc(rideParticipants.dropoffOrder));
   const [zone] = await ctx.db.select().from(pickupZones).where(eq(pickupZones.id, g.pickupZoneId));
   const me = rows.find((x) => x.p.userId === viewerId && ACTIVE.includes(x.p.status)) ?? rows.find((x) => x.p.userId === viewerId);
+  const myPayment = me ? await latestPaymentFor(ctx.db, 'ride', me.p.id) : undefined;
+  const myRefunds = myPayment ? (await refundsForPayment(ctx.db, myPayment.id)).map(refundDto) : [];
   const active = rows.filter((x) => ACTIVE.includes(x.p.status));
   return {
     id: g.id,
@@ -593,7 +608,10 @@ export async function toGroupDto(ctx: AppContext, g: GroupRow, viewerId: string)
           readiness: me.p.readiness,
           removedReason: me.p.removedReason,
           cancellationFeeMinor: me.p.cancellationFeeMinor,
-          leaveFeeNowMinor: ACTIVE.includes(me.p.status) ? cancellationFee(me.p, g, s, new Date()) : null,
+          leaveFeeNowMinor: me.p.status === 'confirmed' ? cancellationFee(me.p, g, s, new Date()) : ACTIVE.includes(me.p.status) ? 0 : null,
+          paymentDueAt: me.p.paymentDueAt?.toISOString() ?? null,
+          payment: myPayment ? { status: myPayment.status, amountMinor: myPayment.amountMinor, refundedMinor: myPayment.refundedMinor } : null,
+          refunds: myRefunds,
         }
       : null,
     trip: await riderTripView(ctx, g.id),

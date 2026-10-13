@@ -1,7 +1,7 @@
 import { addDays, localDate, zonedTimeToUtc } from '@waylo/shared';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { rideGroups, rideRequests } from '../../db/schema';
+import { refunds, rideGroups, rideRequests } from '../../db/schema';
 import { createTestApp, type TestApp } from '../../test/harness';
 import { lockGroup } from './groups';
 
@@ -218,6 +218,12 @@ describe('leaving and locking', () => {
     const g = await start(a, ra);
     await join(b, rb, g.id);
     await lockGroup(t.ctx, g.id);
+    expect((await a.get(`/api/v1/rides/groups/${g.id}`)).body.group.me.status).toBe('payment_due');
+    // Both riders pay their final price (sandbox checkout → signed webhook).
+    for (const rider of [a, b]) {
+      const { checkoutUrl } = (await rider.post(`/api/v1/rides/groups/${g.id}/pay`)).body;
+      await rider.post(`/api/v1/payments/sandbox/intents/${checkoutUrl.split('/').pop()}/complete`).send({ outcome: 'succeed' });
+    }
     const aBefore = (await a.get(`/api/v1/rides/groups/${g.id}`)).body.group.me;
     expect(aBefore.status).toBe('confirmed');
     const bView = (await b.get(`/api/v1/rides/groups/${g.id}`)).body.group.me;
@@ -230,6 +236,9 @@ describe('leaving and locking', () => {
     expect(aAfter.finalTotalMinor).toBe(aBefore.finalTotalMinor);
     const [row] = await t.ctx.db.select().from(rideGroups).where(eq(rideGroups.id, g.id));
     expect(row!.platformSubsidyMinor).toBeGreaterThan(0);
+    // The leaver is refunded what they paid minus the fee.
+    const [refund] = await t.ctx.db.select().from(refunds).where(eq(refunds.reason, 'ride_left_after_lock'));
+    expect(refund!.amountMinor).toBe(bView.finalTotalMinor - Math.round(bView.finalTotalMinor * 0.25));
   });
 });
 
