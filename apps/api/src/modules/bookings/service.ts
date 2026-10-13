@@ -51,6 +51,10 @@ export async function lockPrice(ctx: AppContext, user: AuthUser, offerId: string
   if (offer.validFrom > now) throw conflict('offer_not_open', 'This offer is not open for booking yet.');
   const maxPax = offer.eligibility?.maxPassengers;
   if (maxPax && adults > maxPax) throw conflict('eligibility_failed', `This fare allows up to ${maxPax} travellers per booking.`);
+  const minAdvance = offer.eligibility?.minAdvanceHours;
+  if (minAdvance && row.departAt.getTime() - now.getTime() < minAdvance * 3_600_000) {
+    throw conflict('eligibility_failed', `This fare must be booked at least ${minAdvance} hours before departure.`);
+  }
   const capLeft = remainingSeats({ seatsAvailable: null, inventoryCap: offer.inventoryCap, seatsSold: offer.seatsSold });
   if (capLeft !== null && capLeft < adults) throw conflict('offer_unavailable', capLeft === 0 ? 'This fare has sold out.' : `Only ${capLeft} seats are left at this fare.`);
 

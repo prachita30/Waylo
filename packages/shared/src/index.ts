@@ -9,3 +9,4 @@ export * from './fares';
 export * from './matching';
 export * from './geo';
 export * from './schemas/operator';
+export * from './schemas/partner';

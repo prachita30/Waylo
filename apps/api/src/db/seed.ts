@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import type { Db } from './client';
 import { seedDemoAccounts } from './demo-accounts';
 import { seedDemoFleet } from './demo-fleet';
+import { seedDemoPartner } from './demo-partner';
 import { airports, appConfig, cities, pickupZones } from './schema';
 
 /** Real Indian cities and airports (public reference data). Coordinates are approximate. */
@@ -96,4 +97,5 @@ export async function seed(db: Db, opts: SeedOptions = { demo: true }): Promise<
   if (!opts.demo) return;
   const ids = await seedDemoAccounts(db);
   await seedDemoFleet(db, ids);
+  await seedDemoPartner(db, ids);
 }

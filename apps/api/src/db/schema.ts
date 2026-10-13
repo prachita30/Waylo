@@ -210,7 +210,7 @@ export const flightOffers = pgTable(
     /** 'partner' for offers published in the partner portal, otherwise the adapter provider key. */
     source: varchar('source', { length: 32 }).notNull(),
     externalRef: varchar('external_ref', { length: 128 }).notNull(),
-    partnerId: uuid('partner_id'),
+    partnerId: uuid('partner_id').references(() => partners.id),
     cabin: cabinEnum('cabin').notNull(),
     /** All-inclusive fare per adult, in minor units. */
     fareMinor: integer('fare_minor').notNull(),
@@ -944,4 +944,65 @@ export const supportMessages = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index('support_messages_ticket_idx').on(t.ticketId, t.createdAt)],
+);
+
+// ---------------------------------------------------------------- airline & distribution partners
+
+export const partnerKindEnum = pgEnum('partner_kind', ['airline', 'distributor']);
+
+export const partners = pgTable(
+  'partners',
+  {
+    id: pk(),
+    name: varchar('name', { length: 120 }).notNull(),
+    kind: partnerKindEnum('kind').notNull(),
+    phone: varchar('phone', { length: 16 }).notNull(),
+    /** Airline designators this partner asked to sell, with display names. */
+    requestedAirlines: jsonb('requested_airlines').$type<{ code: string; name: string }[]>().notNull().default([]),
+    /** Designators WAYLO has authorised after review. Offers are only accepted for these. */
+    authorisedAirlines: jsonb('authorised_airlines').$type<string[]>().notNull().default([]),
+    status: reviewStatusEnum('status').notNull().default('pending'),
+    statusReason: text('status_reason'),
+    isDemo: boolean('is_demo').notNull().default(false),
+    reviewedBy: uuid('reviewed_by').references(() => users.id),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index('partners_status_idx').on(t.status)],
+);
+
+export const partnerMembers = pgTable(
+  'partner_members',
+  {
+    partnerId: uuid('partner_id')
+      .notNull()
+      .references(() => partners.id),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    role: varchar('role', { length: 16 }).notNull().default('owner'),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.partnerId, t.userId] }), uniqueIndex('partner_members_user_uq').on(t.userId)],
+);
+
+/** Routes a partner operates or distributes; offers must be on a configured, active route. */
+export const partnerRoutes = pgTable(
+  'partner_routes',
+  {
+    id: pk(),
+    partnerId: uuid('partner_id')
+      .notNull()
+      .references(() => partners.id),
+    origin: varchar('origin', { length: 3 })
+      .notNull()
+      .references(() => airports.code),
+    destination: varchar('destination', { length: 3 })
+      .notNull()
+      .references(() => airports.code),
+    active: boolean('active').notNull().default(true),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('partner_routes_uq').on(t.partnerId, t.origin, t.destination), check('partner_routes_distinct_ck', sql`${t.origin} <> ${t.destination}`)],
 );

@@ -16,6 +16,7 @@ import { financeRouter } from './modules/payments/adminRoutes';
 import { paymentsRouter, paymentWebhookRouter } from './modules/payments/routes';
 import { reviewRouter } from './modules/admin/review';
 import { notificationsRouter } from './modules/notifications/routes';
+import { partnerRouter } from './modules/partner/routes';
 import { registerNotifications } from './modules/notifications/service';
 import { registerSupply } from './modules/operator/fleet';
 import { supportRouter } from './modules/support/routes';
@@ -76,6 +77,7 @@ export function createApp(ctx: AppContext) {
   v1.use(financeRouter(ctx));
   v1.use(notificationsRouter(ctx));
   v1.use(supportRouter(ctx));
+  v1.use(partnerRouter(ctx));
   app.use('/api/v1', v1);
 
   app.use(notFoundHandler);

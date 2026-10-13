@@ -1,0 +1,1 @@
+ALTER TABLE "flight_offers" ADD CONSTRAINT "flight_offers_partner_id_partners_id_fk" FOREIGN KEY ("partner_id") REFERENCES "public"."partners"("id") ON DELETE no action ON UPDATE no action;

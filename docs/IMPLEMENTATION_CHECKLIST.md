@@ -153,4 +153,23 @@ Update this file at the end of every module. On resumption, continue from the fi
 ## Phase 15 — Integration testing, security review and deployment readiness
 
 ## Next action
-Phase 12: airline and inventory-partner portal (partner orgs linked to airlines, offer publication with rules/eligibility/validity/inventory caps, route configuration, booking stats, ticketing/cancellation views, reporting, audit log).
+
+Phase 12 (partner portal) is **in progress**. Done so far:
+
+- Partner tables and migrations `0010` and `0011`.
+- Shared schemas in `schemas/partner.ts`.
+- API module `modules/partner/{service,routes}.ts`, mounted at `/api/v1/partner/*`. It covers onboarding, routes, offers (create, edit, status changes), stats, bookings without passenger data, and the audit trail.
+- The `minAdvanceHours` eligibility check in `lockPrice`.
+- Admin review of partners: approval authorises the requested airlines; rejection or suspension pauses that partner's published offers.
+- A demo partner seed (`partner@demo.waylo.app`, approved for the sandbox airline S1, routes BOM–GOI and BOM–DEL, no offers).
+- API typecheck is clean, and the existing 134 API tests pass. One earlier run under heavy machine load had 30 failures that did not reproduce on rerun with the same code.
+
+Still to do for Phase 12:
+
+1. API tests for the partner module.
+2. The web partner portal (`/partner`: dashboard, offers table and form, routes, bookings, audit, onboarding gate), plus its tests.
+3. `npm run check`, re-seed (`npm run db:seed`), and the final Phase 12 commit.
+
+Known limitation: in production, ticketing for partner-published fares needs that partner's own fulfilment integration. The sandbox adapter falls back to the stored offer data.
+
+Then Phases 13–15 as listed above.
