@@ -318,7 +318,8 @@ export async function getOffer(ctx: AppContext, id: string, adults = 1, now = ne
     .innerJoin(airlines, eq(airlines.code, flights.airlineCode))
     .where(eq(flightOffers.id, id))
     .limit(1)) as OfferRow[];
-  if (!row) throw notFound('Offer');
+  // Drafts were never public; other closed offers stay viewable but show as no longer available.
+  if (!row || row.status === 'draft') throw notFound('Offer');
   const [origin, destination] = await Promise.all([loadAirport(ctx.db, row.origin), loadAirport(ctx.db, row.destination)]);
   return {
     ...toOfferDto(row, adults, now),

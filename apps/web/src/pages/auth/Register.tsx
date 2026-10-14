@@ -6,7 +6,7 @@ import { Link, Navigate, useNavigate, useSearchParams } from 'react-router';
 import { Button } from '@/components/ui/Button';
 import { Checkbox, Input } from '@/components/ui/Field';
 import { Notice } from '@/components/ui/States';
-import { safeNext, useMe, useRegister } from '@/lib/auth';
+import { homeForRole, safeNext, useMe, useRegister } from '@/lib/auth';
 import { applyServerErrors } from '@/lib/forms';
 import { AuthLayout } from './AuthLayout';
 
@@ -16,18 +16,21 @@ export default function Register() {
   const me = useMe();
   const signup = useRegister();
   const [formError, setFormError] = useState<string | null>(null);
+  const as = params.get('as');
+  const accountType = as === 'partner' || as === 'operator' ? as : 'passenger';
+  const next = safeNext(params.get('next'), homeForRole(accountType));
   const { register, control, handleSubmit, setError, formState } = useForm<RegisterInput>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { fullName: '', email: '', password: '', phone: '', acceptTerms: false as unknown as true },
+    defaultValues: { fullName: '', email: '', password: '', phone: '', acceptTerms: false as unknown as true, accountType },
   });
 
-  if (me.data) return <Navigate to={safeNext(params.get('next'))} replace />;
+  if (me.data) return <Navigate to={next} replace />;
 
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null);
     try {
       await signup.mutateAsync(values);
-      navigate(safeNext(params.get('next')), { replace: true });
+      navigate(next, { replace: true });
     } catch (e) {
       setFormError(applyServerErrors(e, setError, ['fullName', 'email', 'password', 'phone', 'acceptTerms']));
     }
@@ -35,11 +38,11 @@ export default function Register() {
 
   return (
     <AuthLayout
-      title="Create your account"
+      title={ACCOUNT_TITLE[accountType]}
       subtitle={
         <>
           Already have one?{' '}
-          <Link to={`/login${params.get('next') ? `?next=${encodeURIComponent(params.get('next')!)}` : ''}`} className="font-semibold text-primary hover:underline">
+          <Link to={`/login${accountType !== 'passenger' || params.get('next') ? `?next=${encodeURIComponent(next)}` : ''}`} className="font-semibold text-primary hover:underline">
             Sign in
           </Link>
         </>
@@ -104,3 +107,9 @@ export default function Register() {
     </AuthLayout>
   );
 }
+
+const ACCOUNT_TITLE = {
+  passenger: 'Create your account',
+  partner: 'Apply as an airline or distribution partner',
+  operator: 'Apply as a fleet operator',
+} as const;

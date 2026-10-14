@@ -147,29 +147,23 @@ Update this file at the end of every module. On resumption, continue from the fi
 - [x] Web: notification bell with unread badge and quick list, notifications page, support centre (new request with booking/ride prefill and attachment, emergency guidance, request list), conversation thread with attachments, reply and close; Support entry in the account menu
 - [x] Tests: API 134 (8 notification/support tests incl. branded email content and absence of tool branding, preference-based channels, retry/give-up, owner-scoped read, attachment privacy, internal-note privacy, agent reply notification, safety escalation, disguised attachments), web 62
 
-## Phase 12 — Airline and inventory-partner portal
+## Phase 12 — Airline and inventory-partner portal ✅ (2026-10-14)
+- [x] Migrations 0010_partners (partners with requested vs authorised airlines and review status, partner_members, partner_routes) and 0011_partner_offer_fk (flight_offers.partner_id → partners)
+- [x] Shared schemas: partner onboarding, partner offer (local airport times, paise, sourced reference fare, fee rules, eligibility, inventory cap, sale window), partner offer edit
+- [x] Partner API (/partner/*): me, onboarding, routes (add, deactivate, reactivate), offers (list, create, edit, publish/pause/resume/withdraw), stats, bookings (no passenger personal data), audit trail
+- [x] Server rules: approved partners only; airline must be authorised for that partner; route must be active in the partner's network; local times converted per airport zone; departure in the future, arrival after departure, sale closes before departure; conflicting schedule for the same flight number → 409; reference fare must be higher and sourced; edits cannot drop the cap below seats sold or the fare to or above the reference; withdrawn/expired offers are final; every action audited
+- [x] Booking eligibility: max travellers per booking and minimum advance-booking hours enforced at price lock; draft offers are not visible (404) on the public offer page or at validation
+- [x] Admin review extended to partners: approval authorises the requested airlines (marked sandbox in demo mode); rejection or suspension pauses the partner's live fares without touching sold bookings
+- [x] Demo partner seed: partner@demo.waylo.app → "Saffron Air Demo Desk", approved for sandbox airline S1 on BOM–GOI and BOM–DEL, no offers
+- [x] Web: /partner portal (overview metrics and live offers, offers table with filters, status actions, withdraw confirmation and fare/cap edit, new-offer form with rupee→paise conversion, IST sale window, saving preview only with a source, server errors on the matching field; routes; bookings; activity log), onboarding gate and pending/suspended banner; register page accepts ?as=partner|operator; partner info page links to applications
+- [x] Copy fix: the partner info page no longer claims bookings are ticketed through the partner's systems
+- [x] Tests: API 143 (9 partner tests), web 69 (7 partner tests); shared 44; full `npm run check` passes
+- [x] Live check: demo partner portal pages rendered against the dev API; a published offer appeared in public flight search with its sourced saving; no console errors. Clicks could not be exercised because the browser pane was hidden, so the form itself is covered by the component tests
+- Limitation: there is no partner fulfilment adapter yet. In demo mode the sandbox airline adapter tickets partner fares from the stored offer data; production needs each partner's own ticketing integration before partner fares can be sold
 ## Phase 13 — Internal administration dashboard
 ## Phase 14 — Analytics and business reporting
 ## Phase 15 — Integration testing, security review and deployment readiness
 
 ## Next action
 
-Phase 12 (partner portal) is **in progress**. Done so far:
-
-- Partner tables and migrations `0010` and `0011`.
-- Shared schemas in `schemas/partner.ts`.
-- API module `modules/partner/{service,routes}.ts`, mounted at `/api/v1/partner/*`. It covers onboarding, routes, offers (create, edit, status changes), stats, bookings without passenger data, and the audit trail.
-- The `minAdvanceHours` eligibility check in `lockPrice`.
-- Admin review of partners: approval authorises the requested airlines; rejection or suspension pauses that partner's published offers.
-- A demo partner seed (`partner@demo.waylo.app`, approved for the sandbox airline S1, routes BOM–GOI and BOM–DEL, no offers).
-- API typecheck is clean, and the existing 134 API tests pass. One earlier run under heavy machine load had 30 failures that did not reproduce on rerun with the same code.
-
-Still to do for Phase 12:
-
-1. API tests for the partner module.
-2. The web partner portal (`/partner`: dashboard, offers table and form, routes, bookings, audit, onboarding gate), plus its tests.
-3. `npm run check`, re-seed (`npm run db:seed`), and the final Phase 12 commit.
-
-Known limitation: in production, ticketing for partner-published fares needs that partner's own fulfilment integration. The sandbox adapter falls back to the stored offer data.
-
-Then Phases 13–15 as listed above.
+Phase 13: the admin dashboard UI at /admin. It covers users, the review queue (operators, drivers, vehicles, documents, partners), offers, bookings, rides, payments/refunds/settlements, support queue, incidents, configuration and feature flags, audit logs, the sandbox outbox, and flight-status controls. Admin APIs for review, finance and support already exist; the user, offer, booking, ride, config and audit list endpoints still need to be built.

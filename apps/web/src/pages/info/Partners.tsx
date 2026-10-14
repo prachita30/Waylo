@@ -23,10 +23,10 @@ export default function Partners() {
           points={[
             'Publish offers on the routes and dates you choose, with your own fare rules',
             'Set validity windows, eligibility and inventory caps',
-            'Every booking is validated and ticketed through your systems',
+            'Bookings are checked against your fare, seat cap and eligibility rules before payment',
             'Booking, cancellation and refund reporting with an audit log',
           ]}
-          cta={{ to: '/login?next=%2Fpartner', label: 'Partner sign in' }}
+          cta={{ to: '/register?as=partner', label: 'Apply as a partner' }}
         />
         <PartnerCard
           icon={<CarFront className="size-5" aria-hidden />}
@@ -38,7 +38,7 @@ export default function Partners() {
             'Clear trip status updates and incident reporting',
             'Transparent earnings and settlement tracking',
           ]}
-          cta={{ to: '/login?next=%2Foperator', label: 'Operator sign in' }}
+          cta={{ to: '/register?as=operator', label: 'Apply as an operator' }}
         />
       </div>
       <p className="t-body mt-10 text-sm">

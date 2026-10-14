@@ -4,6 +4,7 @@ import { RequireAuth } from '@/components/layout/RequireAuth';
 import { UserMenu } from '@/components/layout/UserMenu';
 import { RouteError } from '@/pages/RouteError';
 import OperatorShell, { OperatorOutlet } from '@/pages/operator/OperatorShell';
+import PartnerShell, { PartnerOutlet } from '@/pages/partner/PartnerShell';
 
 const lazyPage = (load: () => Promise<{ default: React.ComponentType }>) => async () => ({ Component: (await load()).default });
 
@@ -27,6 +28,29 @@ export const router = createBrowserRouter([
               { path: 'availability', lazy: lazyPage(() => import('@/pages/operator/Availability')) },
               { path: 'earnings', lazy: lazyPage(() => import('@/pages/operator/Earnings')) },
               { path: 'incidents', lazy: lazyPage(() => import('@/pages/operator/Incidents')) },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    path: '/partner',
+    element: <RequireAuth roles={['partner']} />,
+    errorElement: <RouteError />,
+    children: [
+      {
+        element: <PartnerShell />,
+        children: [
+          {
+            element: <PartnerOutlet />,
+            children: [
+              { index: true, lazy: lazyPage(() => import('@/pages/partner/Overview')) },
+              { path: 'offers', lazy: lazyPage(() => import('@/pages/partner/Offers')) },
+              { path: 'offers/new', lazy: lazyPage(() => import('@/pages/partner/NewOffer')) },
+              { path: 'routes', lazy: lazyPage(() => import('@/pages/partner/Routes')) },
+              { path: 'bookings', lazy: lazyPage(() => import('@/pages/partner/Bookings')) },
+              { path: 'activity', lazy: lazyPage(() => import('@/pages/partner/Activity')) },
             ],
           },
         ],

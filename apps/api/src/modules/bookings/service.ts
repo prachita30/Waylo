@@ -43,7 +43,7 @@ export async function lockPrice(ctx: AppContext, user: AuthUser, offerId: string
     .from(flightOffers)
     .innerJoin(flights, eq(flights.id, flightOffers.flightId))
     .where(eq(flightOffers.id, offerId));
-  if (!row) throw notFound('Offer');
+  if (!row || row.offer.status === 'draft') throw notFound('Offer');
   const { offer } = row;
   if (offer.status !== 'published' || offer.validUntil <= now || row.departAt <= now) {
     throw gone('offer_expired', 'This offer has expired. Please choose another flight.');
