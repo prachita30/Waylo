@@ -28,12 +28,14 @@ export default defineConfig({
   },
   preview: { port: 4173, proxy: { '/api': API } },
   build: {
-    sourcemap: true,
+    // Public builds ship no source maps. Set WAYLO_SOURCEMAPS=hidden to emit maps for an error tracker
+    // (they are not referenced from the bundle and must not be deployed to the web root).
+    sourcemap: process.env.WAYLO_SOURCEMAPS === 'hidden' ? 'hidden' : false,
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes('node_modules/react') || id.includes('node_modules/scheduler')) return 'react';
-          if (id.includes('node_modules/@radix-ui')) return 'radix';
+          if (id.includes('node_modules/react') || id.includes('node_modules/scheduler')) return 'core';
+          if (id.includes('node_modules/@radix-ui')) return 'ui';
           return undefined;
         },
       },

@@ -10,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
+    "docs:openapi": "tsx scripts/openapi.ts",
     "db:migrate": "tsx --env-file-if-exists=../../.env src/db/cli.ts migrate",
     "db:seed": "tsx --env-file-if-exists=../../.env src/db/cli.ts seed",
     "db:reset": "tsx --env-file-if-exists=../../.env src/db/cli.ts reset",
