@@ -150,6 +150,10 @@
   .t-meta {
     @apply text-xs font-medium tracking-wide text-ink-3 uppercase;
   }
+  /** Secondary free text (reasons, emails, details): sentence case, unlike the .t-meta eyebrow. */
+  .t-note {
+    @apply text-sm text-ink-3;
+  }
   .t-price {
     @apply font-bold tracking-[-0.02em] tabular-nums;
   }

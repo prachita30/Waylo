@@ -237,6 +237,9 @@ export const flightOffers = pgTable(
     validFrom: timestamp('valid_from', { withTimezone: true }).notNull().defaultNow(),
     validUntil: timestamp('valid_until', { withTimezone: true }).notNull(),
     status: offerStatusEnum('status').notNull().default('published'),
+    /** Set when WAYLO takes an offer off sale; adapter refreshes and partners cannot republish it. */
+    adminHold: boolean('admin_hold').notNull().default(false),
+    adminHoldReason: text('admin_hold_reason'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

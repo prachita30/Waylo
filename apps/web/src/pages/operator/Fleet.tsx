@@ -63,7 +63,7 @@ export default function Fleet() {
                 </span>
               ),
             },
-            { key: 'status', header: 'Status', cell: (v) => <StatusBadge status={v.status} /> },
+            { key: 'status', header: 'Status', cell: (v) => <ReviewState status={v.status} note={v.statusReason} /> },
           ]}
         />
       </section>
@@ -79,7 +79,7 @@ export default function Fleet() {
             { key: 'phone', header: 'Phone', cell: (d) => d.phone },
             { key: 'lic', header: 'Licence', cell: (d) => `•••• ${d.licenceLast4}` },
             { key: 'app', header: 'App login', cell: (d) => (d.userId ? 'Linked' : 'Not linked'), hideOnMobile: true },
-            { key: 'status', header: 'Status', cell: (d) => <StatusBadge status={d.status} /> },
+            { key: 'status', header: 'Status', cell: (d) => <ReviewState status={d.status} note={d.statusReason} /> },
           ]}
         />
       </section>
@@ -94,7 +94,7 @@ export default function Fleet() {
             { key: 'type', header: 'Document', cell: (d) => DOC_LABEL[d.docType] ?? d.docType },
             { key: 'for', header: 'For', cell: (d) => subjectName(d.subjectType, d.subjectId) },
             { key: 'exp', header: 'Expires', cell: (d) => (d.expiresOn ? formatDate(`${d.expiresOn}T12:00:00Z`, 'UTC', { day: 'numeric', month: 'short', year: 'numeric' }) : '—') },
-            { key: 'status', header: 'Status', cell: (d) => <StatusBadge status={d.status} /> },
+            { key: 'status', header: 'Status', cell: (d) => <ReviewState status={d.status} note={d.reviewNotes} /> },
           ]}
           actions={(d) => (
             <a className="text-sm font-semibold text-primary hover:underline" href={`/api/v1/operator/documents/${d.id}/file`} target="_blank" rel="noreferrer">
@@ -263,5 +263,15 @@ function DocumentDialog({ fleet, onClose }: { fleet: FleetData; onClose: () => v
         </div>
       </div>
     </Dialog>
+  );
+}
+
+/** Status plus WAYLO's review note, so a rejected item says what to fix. */
+function ReviewState({ status, note }: { status: string; note?: string | null }) {
+  return (
+    <span className="inline-flex flex-col items-start gap-1">
+      <StatusBadge status={status} />
+      {note && status !== 'approved' && <span className="t-note max-w-56">{note}</span>}
+    </span>
   );
 }

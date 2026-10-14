@@ -4,7 +4,7 @@ import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { PageHeader } from '@/components/layout/PortalLayout';
-import { StatusBadge } from '@/components/ui/Badge';
+import { Badge, StatusBadge } from '@/components/ui/Badge';
 import { Button, buttonClass } from '@/components/ui/Button';
 import { DataTable } from '@/components/ui/DataTable';
 import { ConfirmDialog, Dialog } from '@/components/ui/Dialog';
@@ -88,12 +88,24 @@ export default function Offers() {
           { key: 'fare', header: 'Fare', cell: (o) => <span className="t-price">{formatMoney(o.fareMinor)}</span> },
           { key: 'sold', header: 'Sold', cell: (o) => `${o.seatsSold}${o.inventoryCap ? ` / ${o.inventoryCap}` : ''}` },
           { key: 'until', header: 'On sale until', cell: (o) => formatDateTime(o.validUntil), hideOnMobile: true },
-          { key: 'status', header: 'Status', cell: (o) => <StatusBadge status={o.status} /> },
+          {
+            key: 'status',
+            header: 'Status',
+            cell: (o) =>
+              o.adminHold ? (
+                <span className="flex flex-col items-start gap-1">
+                  <Badge tone="danger">Held by WAYLO</Badge>
+                  {o.adminHold.reason && <span className="t-note max-w-56">{o.adminHold.reason}</span>}
+                </span>
+              ) : (
+                <StatusBadge status={o.status} />
+              ),
+          },
         ]}
         actions={(o) =>
           approved && !['expired', 'withdrawn'].includes(o.status) ? (
             <div className="flex flex-wrap gap-2">
-              {o.status !== 'published' && (
+              {o.status !== 'published' && !o.adminHold && (
                 <Button size="sm" onClick={() => setStatus.mutate({ id: o.id, status: 'published' })} aria-label={`Publish ${o.flightNumber}`}>
                   {o.status === 'paused' ? 'Resume' : 'Publish'}
                 </Button>

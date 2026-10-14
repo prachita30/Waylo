@@ -1,6 +1,7 @@
 import { availabilitySchema, driverSchema, incidentSchema, onboardingSchema, VEHICLE_CLASSES, vehicleSchema } from '@waylo/shared';
 import { and, eq } from 'drizzle-orm';
 import { Router } from 'express';
+import { requireFeature } from '../../lib/settings';
 import multer from 'multer';
 import { z } from 'zod';
 import type { AppContext } from '../../context';
@@ -26,6 +27,7 @@ export function operatorRouter(ctx: AppContext): Router {
   });
 
   r.post('/operator/onboarding', async (req, res) => {
+    await requireFeature(ctx.db, 'operatorOnboarding');
     const user = currentUser(req);
     if (await membershipFor(ctx.db, user.id)) throw conflict('already_onboarded', 'You already belong to an operator.');
     const input = body(req, onboardingSchema);

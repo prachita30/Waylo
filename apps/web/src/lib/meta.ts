@@ -11,6 +11,8 @@ export interface Meta {
   mode: 'demo' | 'production';
   demo: boolean;
   adapters: AdapterInfo[];
+  /** Admin-controlled switches; the server enforces them, this is for messaging only. */
+  features?: { flightBooking: boolean; rideRequests: boolean; partnerOnboarding: boolean; operatorOnboarding: boolean };
   demoLogin: { password: string; accounts: { email: string; fullName: string; role: string }[] } | null;
 }
 

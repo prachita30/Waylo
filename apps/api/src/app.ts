@@ -14,6 +14,7 @@ import { flightsRouter } from './modules/flights/routes';
 import { healthRouter, metaRouter } from './modules/meta/routes';
 import { financeRouter } from './modules/payments/adminRoutes';
 import { paymentsRouter, paymentWebhookRouter } from './modules/payments/routes';
+import { adminConsoleRouter } from './modules/admin/console';
 import { reviewRouter } from './modules/admin/review';
 import { notificationsRouter } from './modules/notifications/routes';
 import { partnerRouter } from './modules/partner/routes';
@@ -74,6 +75,7 @@ export function createApp(ctx: AppContext) {
   v1.use(operatorRouter(ctx));
   v1.use(incidentsRouter(ctx));
   v1.use(reviewRouter(ctx));
+  v1.use(adminConsoleRouter(ctx));
   v1.use(financeRouter(ctx));
   v1.use(notificationsRouter(ctx));
   v1.use(supportRouter(ctx));

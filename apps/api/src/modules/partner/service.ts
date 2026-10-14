@@ -106,6 +106,7 @@ const TRANSITIONS: Record<OfferStatus, OfferStatus[]> = {
 export async function setOfferStatus(ctx: AppContext, partner: PartnerRow, actorId: string, offerId: string, to: OfferStatus) {
   const o = await ownOffer(ctx.db, partner.id, offerId);
   if (!TRANSITIONS[o.status].includes(to)) throw conflict('invalid_transition', `A ${o.status} offer cannot be ${to}.`);
+  if (to === 'published' && o.adminHold) throw conflict('admin_hold', `WAYLO has taken this offer off sale${o.adminHoldReason ? `: ${o.adminHoldReason}` : '.'} Contact partner support.`);
   if (to === 'published' && o.validUntil <= new Date()) throw conflict('offer_expired', 'This offer has already ended. Create a new one.');
   const [updated] = await ctx.db.update(flightOffers).set({ status: to }).where(eq(flightOffers.id, offerId)).returning();
   await recordAudit(ctx.db, { actorUserId: actorId, actorRole: 'partner', action: `offer.${to}`, entityType: 'offer', entityId: offerId, metadata: { partnerId: partner.id, from: o.status } });
@@ -162,6 +163,7 @@ export async function listPartnerOffers(ctx: AppContext, partnerId: string) {
     validFrom: o.validFrom.toISOString(),
     validUntil: o.validUntil.toISOString(),
     fareRules: o.fareRules,
+    adminHold: o.adminHold ? { reason: o.adminHoldReason } : null,
   }));
 }
 

@@ -4,6 +4,7 @@ import { Router } from 'express';
 import type { Adapter, AppContext } from '../../context';
 import { DEMO_ACCOUNTS, DEMO_PASSWORD } from '../../db/demo-accounts';
 import { airports, cities } from '../../db/schema';
+import { getFeatures } from '../../lib/settings';
 
 export function healthRouter(ctx: AppContext): Router {
   const r = Router();
@@ -22,13 +23,14 @@ export function healthRouter(ctx: AppContext): Router {
 export function metaRouter(ctx: AppContext): Router {
   const r = Router();
 
-  r.get('/meta', (_req, res) => {
+  r.get('/meta', async (_req, res) => {
     const adapters = (Object.values(ctx.adapters) as Adapter[]).map((a) => a.info);
     res.json({
       brand: { name: brand.name, tagline: brand.tagline, supportEmail: brand.supportEmail },
       mode: ctx.config.WAYLO_MODE,
       demo: ctx.config.WAYLO_MODE === 'demo' || adapters.some((a) => a.mode === 'sandbox'),
       adapters,
+      features: await getFeatures(ctx.db),
       // Demo-mode only: publicly documented fixture accounts for testers. Never present in production mode.
       demoLogin:
         ctx.config.WAYLO_MODE === 'demo'

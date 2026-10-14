@@ -91,7 +91,9 @@ export async function upsertAdapterOffers(ctx: AppContext, list: AirlineOffer[],
         status: 'published' as const,
       };
       const { flightId: _f, source: _s, externalRef: _e, ...updatable } = values;
-      await tx.insert(flightOffers).values(values).onConflictDoUpdate({ target: [flightOffers.source, flightOffers.externalRef], set: updatable });
+      // An offer WAYLO has taken off sale stays off sale however often the airline returns it.
+      const set = { ...updatable, status: sql`case when ${flightOffers.adminHold} then ${flightOffers.status} else 'published' end` };
+      await tx.insert(flightOffers).values(values).onConflictDoUpdate({ target: [flightOffers.source, flightOffers.externalRef], set });
       keep.push(o.externalRef);
     }
     const stale = tx

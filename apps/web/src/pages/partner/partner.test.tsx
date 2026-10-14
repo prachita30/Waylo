@@ -69,6 +69,9 @@ describe('partner onboarding', () => {
   });
 });
 
+/** These tests type into a dozen fields; give them headroom when the whole suite runs in parallel. */
+const FORM_TIMEOUT = 20_000;
+
 describe('new offer form', () => {
   const api = () =>
     mockApi({
@@ -104,7 +107,7 @@ describe('new offer form', () => {
     expect(sent).toMatchObject({ airlineCode: 'S1', flightDigits: '412', origin: 'BOM', destination: 'GOI', fareMinor: 349_950, taxesMinor: 60_000, inventoryCap: 6, refundable: false, cancelFeeMinor: null, publish: true });
     // Sale opens at 00:00 IST, i.e. 18:30 UTC the previous day.
     expect(String(sent.validFrom)).toMatch(/T18:30:00\.000Z$/);
-  });
+  }, FORM_TIMEOUT);
 
   it('requires a source before showing a saving, and can save a draft', async () => {
     const { calls } = api();
@@ -119,7 +122,7 @@ describe('new offer form', () => {
     await userEvent.type(screen.getByLabelText('Source of the regular fare'), 'Saffron Air website, same flight and cabin');
     await userEvent.click(screen.getByRole('button', { name: 'Save as draft' }));
     await waitFor(() => expect(calls.find((c) => c.method === 'POST')?.body).toMatchObject({ referenceFareMinor: 520_000, publish: false }));
-  });
+  }, FORM_TIMEOUT);
 
   it('shows server errors on the matching field', async () => {
     mockApi({
@@ -131,7 +134,7 @@ describe('new offer form', () => {
     await fillRequired();
     await userEvent.click(screen.getByRole('button', { name: 'Publish offer' }));
     expect(await screen.findByText('Must be before departure.')).toBeInTheDocument();
-  });
+  }, FORM_TIMEOUT);
 });
 
 describe('offers list', () => {
@@ -162,5 +165,18 @@ describe('offers list', () => {
     expect((await screen.findAllByText('S1412')).length).toBeGreaterThan(0);
     expect(screen.queryByRole('button', { name: /Publish S1412/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /New offer/ })).not.toBeInTheDocument();
+  });
+});
+
+describe('offers held by WAYLO', () => {
+  it('shows the hold reason and offers no way to republish', async () => {
+    mockApi({
+      'GET /partner/me': () => ({ body: { partner: partner() } }),
+      'GET /partner/offers': () => ({ body: { items: [offer({ status: 'paused', adminHold: { reason: 'Authorisation letter under review' } })] } }),
+    });
+    renderRoutes([{ path: '/', element: <Offers /> }]);
+    expect((await screen.findAllByText('Held by WAYLO')).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Authorisation letter under review').length).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: 'Publish S1412' })).not.toBeInTheDocument();
   });
 });

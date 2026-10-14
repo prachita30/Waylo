@@ -29,6 +29,7 @@ export interface Vehicle {
   luggageUnits: number;
   wheelchairAccessible: boolean;
   status: ReviewStatus;
+  statusReason?: string | null;
 }
 export interface Driver {
   id: string;
@@ -36,6 +37,7 @@ export interface Driver {
   phone: string;
   licenceLast4: string;
   status: ReviewStatus;
+  statusReason?: string | null;
   userId: string | null;
 }
 export interface FleetDocument {

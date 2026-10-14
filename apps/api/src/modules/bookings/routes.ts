@@ -1,5 +1,6 @@
 import { createBookingSchema, validateOfferSchema } from '@waylo/shared';
 import { Router } from 'express';
+import { requireFeature } from '../../lib/settings';
 import { z } from 'zod';
 import type { AppContext } from '../../context';
 import { currentUser, requireAuth } from '../../http/auth';
@@ -17,12 +18,14 @@ export function bookingsRouter(ctx: AppContext): Router {
   const writeLimit = limiter({ windowMs: 60_000, limit: Math.max(20, Math.floor(ctx.config.API_RATE_LIMIT / 10)), name: 'booking-writes' });
 
   r.post('/flights/offers/:offerId/validate', requireAuth, writeLimit, async (req, res) => {
+    await requireFeature(ctx.db, 'flightBooking');
     const { offerId } = params(req, z.object({ offerId: z.string().uuid() }));
     const { adults } = body(req, validateOfferSchema);
     res.json(await lockPrice(ctx, currentUser(req), offerId, adults));
   });
 
   r.post('/flights/bookings', requireAuth, writeLimit, async (req, res) => {
+    await requireFeature(ctx.db, 'flightBooking');
     const key = req.get('idempotency-key');
     if (!key || !IDEMPOTENCY_KEY.test(key)) throw badRequest('An Idempotency-Key header (8–64 characters) is required.');
     const input = body(req, createBookingSchema);

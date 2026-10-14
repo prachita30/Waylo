@@ -36,6 +36,8 @@ export interface PartnerOffer {
   validFrom: string;
   validUntil: string;
   fareRules: string;
+  /** Set when WAYLO has taken the fare off sale; only WAYLO can release it. */
+  adminHold?: { reason: string | null } | null;
 }
 
 export interface PartnerRoute {

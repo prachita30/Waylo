@@ -83,6 +83,16 @@ const STATUS: Record<string, { tone: Tone; label: string }> = {
   open_ticket: { tone: 'primary', label: 'Open' },
   awaiting_customer: { tone: 'lavender', label: 'Awaiting your reply' },
   escalated: { tone: 'coral', label: 'Escalated' },
+  withdrawn: { tone: 'neutral', label: 'Withdrawn' },
+  investigating: { tone: 'amber', label: 'Investigating' },
+  processing: { tone: 'amber', label: 'Processing' },
+  queued: { tone: 'amber', label: 'Queued' },
+  sent: { tone: 'mint', label: 'Sent' },
+  skipped: { tone: 'neutral', label: 'Skipped' },
+  scheduled: { tone: 'primary', label: 'Scheduled' },
+  delayed: { tone: 'amber', label: 'Delayed' },
+  departed: { tone: 'lavender', label: 'Departed' },
+  landed: { tone: 'mint', label: 'Landed' },
 };
 
 export function statusLabel(status: string) {

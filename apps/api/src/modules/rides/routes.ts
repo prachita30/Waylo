@@ -1,6 +1,7 @@
 import { rideRequestSchema } from '@waylo/shared';
 import { eq } from 'drizzle-orm';
 import { Router } from 'express';
+import { requireFeature } from '../../lib/settings';
 import { z } from 'zod';
 import type { AppContext } from '../../context';
 import { airports, flights } from '../../db/schema';
@@ -61,6 +62,7 @@ export function ridesRouter(ctx: AppContext): Router {
   });
 
   r.post('/rides/requests', requireAuth, async (req, res) => {
+    await requireFeature(ctx.db, 'rideRequests');
     const input = body(req, rideRequestSchema);
     const row = await createRideRequest(ctx, currentUser(req), input);
     res.status(201).json({ request: await toRideRequestDto(ctx.db, row) });
@@ -84,6 +86,7 @@ export function ridesRouter(ctx: AppContext): Router {
   });
 
   r.post('/rides/groups', requireAuth, writeLimit, async (req, res) => {
+    await requireFeature(ctx.db, 'rideRequests');
     const input = body(
       req,
       z.object({

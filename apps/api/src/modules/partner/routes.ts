@@ -1,6 +1,7 @@
 import { partnerOfferSchema, partnerOfferUpdateSchema, partnerOnboardingSchema } from '@waylo/shared';
 import { and, asc, eq } from 'drizzle-orm';
 import { Router } from 'express';
+import { requireFeature } from '../../lib/settings';
 import { z } from 'zod';
 import type { AppContext } from '../../context';
 import { airports, partnerMembers, partnerRoutes, partners } from '../../db/schema';
@@ -20,6 +21,7 @@ export function partnerRouter(ctx: AppContext): Router {
   });
 
   r.post('/partner/onboarding', async (req, res) => {
+    await requireFeature(ctx.db, 'partnerOnboarding');
     const user = currentUser(req);
     if (await partnerFor(ctx.db, user.id)) throw conflict('already_onboarded', 'You already belong to a partner account.');
     const input = body(req, partnerOnboardingSchema);

@@ -85,6 +85,13 @@
       "when": 1791888935290,
       "tag": "0011_partner_offer_fk",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791964590903,
+      "tag": "0012_offer_admin_hold",
+      "breakpoints": true
     }
   ]
 }

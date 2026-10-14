@@ -4,6 +4,7 @@ import { RequireAuth } from '@/components/layout/RequireAuth';
 import { UserMenu } from '@/components/layout/UserMenu';
 import { RouteError } from '@/pages/RouteError';
 import OperatorShell, { OperatorOutlet } from '@/pages/operator/OperatorShell';
+import AdminShell from '@/pages/admin/AdminShell';
 import PartnerShell, { PartnerOutlet } from '@/pages/partner/PartnerShell';
 
 const lazyPage = (load: () => Promise<{ default: React.ComponentType }>) => async () => ({ Component: (await load()).default });
@@ -53,6 +54,31 @@ export const router = createBrowserRouter([
               { path: 'activity', lazy: lazyPage(() => import('@/pages/partner/Activity')) },
             ],
           },
+        ],
+      },
+    ],
+  },
+  {
+    path: '/admin',
+    element: <RequireAuth roles={['admin']} />,
+    errorElement: <RouteError />,
+    children: [
+      {
+        element: <AdminShell />,
+        children: [
+          { index: true, lazy: lazyPage(() => import('@/pages/admin/Overview')) },
+          { path: 'review', lazy: lazyPage(() => import('@/pages/admin/Review')) },
+          { path: 'support', lazy: lazyPage(() => import('@/pages/admin/Support')) },
+          { path: 'support/:ticketId', lazy: async () => ({ Component: (await import('@/pages/admin/Support')).SupportTicket }) },
+          { path: 'incidents', lazy: lazyPage(() => import('@/pages/admin/Incidents')) },
+          { path: 'bookings', lazy: lazyPage(() => import('@/pages/admin/Bookings')) },
+          { path: 'rides', lazy: lazyPage(() => import('@/pages/admin/Rides')) },
+          { path: 'offers', lazy: lazyPage(() => import('@/pages/admin/Offers')) },
+          { path: 'finance', lazy: lazyPage(() => import('@/pages/admin/Finance')) },
+          { path: 'users', lazy: lazyPage(() => import('@/pages/admin/Users')) },
+          { path: 'settings', lazy: lazyPage(() => import('@/pages/admin/Settings')) },
+          { path: 'audit', lazy: lazyPage(() => import('@/pages/admin/Audit')) },
+          { path: 'sandbox', lazy: lazyPage(() => import('@/pages/admin/Sandbox')) },
         ],
       },
     ],
