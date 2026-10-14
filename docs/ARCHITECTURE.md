@@ -29,12 +29,31 @@
 └── docs/             Architecture, checklist, API, ERD, guides
 ```
 
-Domains inside `apps/api/src/modules/` (each has `routes.ts`, `service.ts`, and tests):
-`auth`, `users`, `catalog` (airports/cities), `flights`, `bookings`, `rides`, `matching`,
-`operator`, `payments`, `notifications`, `support`, `partner`, `admin`, `analytics`, `audit`.
+Domains inside `apps/api/src/modules/` (as built):
 
-Cross-cutting: `config` (env validation with zod), `db` (client + migrations), `http`
-(errors, validation, auth, rate limits, CSRF), `adapters` (airline, payments, maps, flight status, messaging).
+| Module | Responsibility |
+|---|---|
+| `meta` | Health, `/meta` (mode, integrations, feature switches), airports |
+| `auth`, `users` | Registration, sessions, profile, preferences, saved destinations, avatars, account deletion |
+| `flights` | Offer cache from the airline adapter, search, offer detail, anonymous search counters |
+| `bookings` | Price locks, bookings, ticketing and its polling, cancellation and refund quotes |
+| `payments` | Payment intents, signed webhooks, refund ledger, ride payments, operator settlements, finance admin |
+| `rides` | Ride requests, place search, the matching and grouping service (`groups.ts`), flight-aware re-planning |
+| `operator` | Fleet onboarding, documents, shifts, trip console, incidents |
+| `partner` | Partner onboarding, routes, fares, reporting |
+| `notifications`, `support` | In-app notifications, outbox delivery with retries, branded email, support tickets |
+| `admin` | Review queue, admin console (users, offers and holds, bookings, rides, incidents, config, audit) |
+| `analytics` | Aggregate reporting and CSV export |
+
+Cross-cutting:
+
+- `config`: env validation with zod.
+- `db`: schema, client, migrations, seed.
+- `http`: errors, validation, auth, rate limits, CSRF.
+- `adapters`: airline, payments, maps, flight status, messaging. Each has a sandbox implementation.
+- `lib`: audit log, logger, password hashing, settings and feature switches, domain events (`emit`/`subscribe`, delivered after commit), and the in-process job runner.
+
+The pure engines live in `packages/shared` (fare splitting, the matching planner, geometry and money), and both apps use them. The server's result is authoritative; the web app only previews.
 
 ## 2. Key decisions
 
@@ -70,9 +89,30 @@ Partner portal (depends on flights + auth) ─► Admin (depends on all) ─► 
 
 ## 5. Security baseline
 
-helmet, strict CORS allow-list, express-rate-limit on auth and search, zod validation on every body/query/param,
-parameterised SQL only (Drizzle), audit events for privileged actions, no secrets in the web bundle (only `VITE_*` public config).
+- helmet, a strict CORS allow-list, rate limits on auth, search, writes and the API overall.
+- zod validation on every body, query and parameter; parameterised SQL only (Drizzle).
+- Audit events for privileged actions; no secrets in the web bundle.
+- An authorisation matrix test over every route.
 
-## 6. PostGIS upgrade path
+See [SECURITY.md](SECURITY.md) for the review and open risks.
 
-When running on managed PostgreSQL with PostGIS, add a migration creating `geography(Point,4326)` columns generated from lat/lng plus GiST indexes, and swap the candidate pre-filter in `matching/repository.ts` to `ST_DWithin`. The matching engine itself is unchanged.
+## 6. Events and background work
+
+Services emit domain events, for example booking confirmed, refund processed, group locked or driver en route, inside their transaction. Subscribers run after commit: notifications and ride payments. Periodic work runs in an in-process job runner (`lib/jobs.ts`):
+
+- booking expiry and ticketing polls
+- ride request expiry and group locking
+- flight-status refresh
+- refund processing and unpaid-seat release
+- notification delivery
+
+Enable it on one instance only (`RUN_JOBS`).
+
+## 7. PostGIS upgrade path
+
+When running on managed PostgreSQL with PostGIS:
+
+1. Add a migration creating `geography(Point,4326)` columns generated from lat/lng, plus GiST indexes.
+2. In `modules/rides/groups.ts`, replace the candidate pre-filter (currently time window and pickup zone, then haversine in code) with `ST_DWithin`.
+
+The matching planner in `packages/shared/src/matching.ts` is unchanged.

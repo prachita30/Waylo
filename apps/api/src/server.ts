@@ -18,7 +18,7 @@ const server = app.listen(ctx.config.PORT, () => {
   );
 });
 
-const stopJobs = startJobs(ctx, [
+const JOBS: Parameters<typeof startJobs>[1] = [
   { name: 'expire-unpaid-bookings', everyMs: 30_000, run: expireUnpaidBookings },
   { name: 'poll-ticketing', everyMs: 15_000, run: pollPendingTicketing },
   { name: 'expire-unmatched-ride-requests', everyMs: 60_000, run: expireUnmatchedRequests },
@@ -27,7 +27,10 @@ const stopJobs = startJobs(ctx, [
   { name: 'process-refunds', everyMs: 20_000, run: (c) => processPendingRefunds(c) },
   { name: 'release-unpaid-seats', everyMs: 30_000, run: releaseUnpaidSeats },
   { name: 'send-notifications', everyMs: 10_000, run: (c) => sendQueuedDeliveries(c) },
-]);
+];
+// With several API instances, enable jobs on exactly one (RUN_JOBS=false elsewhere).
+const stopJobs = ctx.config.RUN_JOBS ? startJobs(ctx, JOBS) : () => undefined;
+if (!ctx.config.RUN_JOBS) ctx.logger.info('background jobs disabled on this instance (RUN_JOBS=false)');
 
 async function shutdown(signal: string) {
   ctx.logger.info({ signal }, 'shutting down');

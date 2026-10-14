@@ -23,6 +23,8 @@ const EnvSchema = z.object({
   TRUST_PROXY: bool.default(false),
   PAYMENT_WEBHOOK_SECRET: z.string().min(16).optional(),
   UPLOAD_DIR: z.string().default('.data/uploads'),
+  /** Run background jobs (expiry, ticketing polls, refunds, notifications) in this process. Enable on exactly one instance. */
+  RUN_JOBS: bool.default(true),
 });
 
 export type Config = z.infer<typeof EnvSchema> & {

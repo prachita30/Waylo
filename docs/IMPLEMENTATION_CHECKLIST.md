@@ -184,8 +184,27 @@ Update this file at the end of every module. On resumption, continue from the fi
 - [x] Tests: API 161 (8 analytics tests driven by a real search → lock → pay → ticket flow: exact funnel counts, value and savings, daily zero-fill, cohort suppression, absence of personal data, CSV export and audit, formula neutralisation, IST day boundaries); web 79; shared 44. Full `npm run check` passes
 - [x] Live check on the dev database: ride metrics computed from the two completed demo trips (2 trips, 4 riders, 40.9% saved vs solo); operator CSV export downloaded with correct headers
 - Not covered: ride metrics have no dedicated automated test with completed trips (verified live only); charts beyond a single daily bar series
-## Phase 15 — Integration testing, security review and deployment readiness
+## Phase 15 — Integration testing, security review and deployment readiness ✅ (2026-10-14)
+- [x] Route inventory read from source (`apps/api/src/test/routes.ts`) with one shared policy: `PUBLIC_ROUTES` and role prefixes
+- [x] Authorisation matrix (`src/security/authz.test.ts`) over all 117 routes:
+  - Anonymous access: 11 deliberately public routes; every other route returns 401.
+  - Role areas (/admin, /sandbox, /partner, /operator) return 403 to every other role.
+  - CSRF: every state-changing route rejects requests without the client header and from a foreign origin.
+  - CORS only for allowed origins; security headers; HttpOnly SameSite cookie with only its hash stored; no stack traces in errors; 413 on oversize bodies.
+  - A mutation check (admin guard removed) was caught by 2 tests (14 leaks), then reverted.
+- [x] Production fail-safes (`src/security/production.test.ts`): no demo data outside demo mode; webhook secret and DATABASE_URL required; sandbox integrations refused in production mode
+- [x] `npm audit`: 0 vulnerabilities; secret scan clean; raw SQL limited to one constant; log redaction confirmed
+- [x] Fixes from the review:
+  - The public web build no longer ships source maps (opt in with `WAYLO_SOURCEMAPS=hidden`).
+  - Vendor chunks have neutral names.
+  - `RUN_JOBS` stops duplicated background jobs when scaling out.
+  - `migrate:dist`/`seed:dist` run migrations and seeding from the built API.
+- [x] OpenAPI 3.1 generated from the route source and the shared zod schemas (`npm run docs:openapi -w apps/api` → `docs/openapi.json`, 110 paths, 117 operations); a test fails if it is stale
+- [x] White-label audit `scripts/brand-audit.mjs` (in `npm run check`): built HTML, manifest, SVG and JS free of tool or template credits; no source maps. Rendered public pages checked in the browser
+- [x] Docs: README (features by role, demo accounts, scripts), ARCHITECTURE (updated to the built modules, events, jobs), ERD (Mermaid, integrity rules checked against the schema), API guide, DEPLOYMENT (topology, configuration, release steps, operations, launch checklist), SECURITY (controls, how each is verified, open risks), LIMITATIONS, TROUBLESHOOTING, FINAL_REPORT
+- [x] Final gate: `npm run check` passes. 301 tests: shared 44, API 178, web 79. Live smoke tests (`smoke`, `smoke-rides`, `smoke-trip`) pass against the dev server
+- Not done: Playwright suite not executed (browser launch unavailable in this environment); no load test; no independent penetration test; Dockerfile in the deployment guide is an untested sketch
 
 ## Next action
 
-Phase 15: integration and security review (authz matrix across all routes, CSRF/rate limits, input validation, secrets, headers, file uploads, dependency audit), an OpenAPI document, a white-label/branding audit of the repo and rendered app, deployment guide, ERD and docs (README, API, setup, troubleshooting, limitations), and a final report.
+All 16 phases (0–15) are complete for the demo-mode MVP. Production work is listed in [FINAL_REPORT.md](FINAL_REPORT.md) under "What a production launch still needs". It starts with the commercial agreements and live adapters, then account recovery, verification and admin MFA, then running the Playwright suite in CI.
