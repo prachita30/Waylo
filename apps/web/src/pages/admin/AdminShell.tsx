@@ -1,4 +1,4 @@
-import { CarFront, FlaskConical, IndianRupee, LayoutDashboard, LifeBuoy, Plane, ScrollText, Settings, ShieldAlert, ShieldCheck, Tags, Users } from 'lucide-react';
+import { CarFront, ChartColumn, FlaskConical, IndianRupee, LayoutDashboard, LifeBuoy, Plane, ScrollText, Settings, ShieldAlert, ShieldCheck, Tags, Users } from 'lucide-react';
 import { useState } from 'react';
 import { PortalLayout, type PortalNavItem } from '@/components/layout/PortalLayout';
 import { Button } from '@/components/ui/Button';
@@ -17,6 +17,7 @@ const NAV: PortalNavItem[] = [
   { to: '/admin/rides', label: 'Rides', icon: CarFront },
   { to: '/admin/offers', label: 'Offers', icon: Tags },
   { to: '/admin/finance', label: 'Finance', icon: IndianRupee },
+  { to: '/admin/analytics', label: 'Analytics', icon: ChartColumn },
   { to: '/admin/users', label: 'Users', icon: Users },
   { to: '/admin/settings', label: 'Settings', icon: Settings },
   { to: '/admin/audit', label: 'Audit log', icon: ScrollText },

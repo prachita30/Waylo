@@ -3,6 +3,7 @@ import {
   boolean,
   check,
   char,
+  date,
   doublePrecision,
   index,
   integer,
@@ -250,6 +251,22 @@ export const flightOffers = pgTable(
     check('offers_fare_ck', sql`${t.fareMinor} > 0 AND ${t.taxesMinor} >= 0 AND ${t.taxesMinor} <= ${t.fareMinor}`),
     check('offers_sold_ck', sql`${t.seatsSold} >= 0 AND (${t.inventoryCap} IS NULL OR ${t.seatsSold} <= ${t.inventoryCap})`),
   ],
+);
+
+/**
+ * Anonymous demand counters for analytics: one row per local search day and route. No user,
+ * session, IP or passenger details are stored, only how many searches ran and how many found offers.
+ */
+export const searchStats = pgTable(
+  'search_stats',
+  {
+    day: date('day', { mode: 'string' }).notNull(),
+    origin: varchar('origin', { length: 3 }).notNull(),
+    destination: varchar('destination', { length: 3 }).notNull(),
+    searches: integer('searches').notNull().default(0),
+    withResults: integer('with_results').notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.day, t.origin, t.destination] })],
 );
 
 // ---------------------------------------------------------------- flight bookings & payments

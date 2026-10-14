@@ -171,9 +171,21 @@ Update this file at the end of every module. On resumption, continue from the fi
 - [x] Tests: API 153 (10 admin console tests: role gating, real overview counts, suspension signs the user out, audit trail, offer hold survives an airline refresh, partner cannot republish a held offer, feature switches gate booking and partner onboarding, ride-rule validation, incident resolution); web 78 (8 admin tests plus a partner held-offer test); shared 44. Full `npm run check` passes. Three long partner form tests now have a 20 s timeout after one timed out under full-suite load
 - [x] Live check against the dev API as the demo admin: overview, offers, settings, finance, rides, audit and sandbox pages rendered with database data and no script errors. Clicks were not exercised (browser pane hidden); interactions are covered by component tests
 - Not done here: editing fare rates and matching weights; admin role changes; bulk actions
-## Phase 14 — Analytics and business reporting
+## Phase 14 — Analytics and business reporting ✅ (2026-10-14)
+- [x] Migration 0013_search_stats: anonymous demand counters (local day × route: searches, searches with results). No user, session, IP or passenger data. Recorded by flight search; a counter failure never fails a search. Reports say since when searches have been counted, because earlier demand is unknown rather than zero
+- [x] Analytics service (aggregates only, days in IST, money in paise, window up to 366 days):
+  - flights: searches, price locks, bookings started, paid (successful payment exists), ticketed (by ticketing day), seats, gross booking value, cancellations after ticketing, ticketing failures, partner share, step conversion (search→lock, lock→booking, booking→paid)
+  - savings: measured only against the sourced reference fare captured in the booking snapshot at booking time
+  - rides: requests, match rate = matched ÷ (matched + no match + expired), completed trips, seat fill, parties per trip, riders carried, rider revenue, savings vs solo price, platform subsidy
+  - refunds: count, amount, failures; plus daily series (every day in the window, zero days included), route demand and sales, partner and operator performance
+- [x] Privacy: route booking figures below a minimum cohort of 5 are withheld (`suppressed`); no personal data in any response (asserted in tests); CSV exports are audited
+- [x] Admin API: /admin/analytics/{summary,daily,routes,partners,operators,export}. CSV uses RFC 4180 quoting and neutralises spreadsheet formulas (= + - @ prefixes)
+- [x] Web /admin/analytics: period presets and custom range, headline metrics, flight funnel, shared-ride panel, accessible SVG daily chart with a numbers table, route/partner/operator tables, CSV download per report
+- [x] Tests: API 161 (8 analytics tests driven by a real search → lock → pay → ticket flow: exact funnel counts, value and savings, daily zero-fill, cohort suppression, absence of personal data, CSV export and audit, formula neutralisation, IST day boundaries); web 79; shared 44. Full `npm run check` passes
+- [x] Live check on the dev database: ride metrics computed from the two completed demo trips (2 trips, 4 riders, 40.9% saved vs solo); operator CSV export downloaded with correct headers
+- Not covered: ride metrics have no dedicated automated test with completed trips (verified live only); charts beyond a single daily bar series
 ## Phase 15 — Integration testing, security review and deployment readiness
 
 ## Next action
 
-Phase 14: analytics and business reporting from real aggregates — bookings and GMV over time, conversion (search → lock → booking → ticketed), ride match rate, average savings vs sourced reference fares, ride fill and subsidy, refunds, partner and operator performance — with privacy (aggregates only, minimum cohort sizes, no personal data in exports) and CSV export for admins.
+Phase 15: integration and security review (authz matrix across all routes, CSRF/rate limits, input validation, secrets, headers, file uploads, dependency audit), an OpenAPI document, a white-label/branding audit of the repo and rendered app, deployment guide, ERD and docs (README, API, setup, troubleshooting, limitations), and a final report.

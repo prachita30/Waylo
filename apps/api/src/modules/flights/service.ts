@@ -3,7 +3,7 @@ import { and, eq, gt, gte, inArray, lt, lte, notInArray, sql } from 'drizzle-orm
 import type { AirlineAirport, AirlineOffer, CabinClass } from '../../adapters/airline/types';
 import type { AppContext } from '../../context';
 import type { DbOrTx } from '../../db/client';
-import { airlines, airports, cities, flightOffers, flights } from '../../db/schema';
+import { airlines, airports, cities, flightOffers, flights, searchStats } from '../../db/schema';
 import { badRequest, notFound } from '../../http/errors';
 
 export type DepartureWindow = 'early' | 'morning' | 'afternoon' | 'evening' | 'night';
@@ -299,6 +299,7 @@ export async function searchFlights(ctx: AppContext, p: SearchParams, now = new 
   items.sort((a, b) => rank(a) - rank(b) || key[p.sort](a) - key[p.sort](b) || a.departAt.localeCompare(b.departAt) || a.id.localeCompare(b.id));
 
   const total = items.length;
+  await countSearch(ctx, localDate(now, origin.timezone), origin.code, destination.code, total > 0);
   const start = (p.page - 1) * p.pageSize;
   return {
     query: { ...p, origin: { code: origin.code, city: origin.city }, destination: { code: destination.code, city: destination.city } },
@@ -328,4 +329,19 @@ export async function getOffer(ctx: AppContext, id: string, adults = 1, now = ne
     originAirport: { code: origin.code, name: origin.name, city: origin.city, timezone: origin.timezone },
     destinationAirport: { code: destination.code, name: destination.name, city: destination.city, timezone: destination.timezone },
   };
+}
+
+/** Anonymous daily demand counter (see search_stats). Never blocks or fails a search. */
+async function countSearch(ctx: AppContext, day: string, origin: string, destination: string, found: boolean) {
+  try {
+    await ctx.db
+      .insert(searchStats)
+      .values({ day, origin, destination, searches: 1, withResults: found ? 1 : 0 })
+      .onConflictDoUpdate({
+        target: [searchStats.day, searchStats.origin, searchStats.destination],
+        set: { searches: sql`${searchStats.searches} + 1`, withResults: sql`${searchStats.withResults} + ${found ? 1 : 0}` },
+      });
+  } catch (err) {
+    ctx.logger.warn({ err }, 'search counter update failed');
+  }
 }
